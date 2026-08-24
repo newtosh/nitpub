@@ -1,0 +1,10 @@
+/data/
+/cmd/nitpub/dist/
+/web/node_modules/
+/web/dist/
+/.build/
+*.db
+/nitpub
+/nitpub-linux
+/.playwright-mcp/
+/.tskb

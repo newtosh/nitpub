@@ -1,0 +1,130 @@
+/* GitHub — Primer light / dark */
+:root,
+[data-theme='github'][data-scheme='light'],
+[data-theme='github'][data-scheme='auto'] {
+  --bg: #ffffff;
+  --surface: #f6f8fa;
+  --text: #1f2328;
+  --muted: #59636e;
+  --border: #d1d9e0;
+  --accent: #0969da;
+  --accent-hover: #0550ae;
+  --danger: #cf222e;
+  --danger-bg: #ffebe9;
+  --code-bg: #f6f8fa;
+  --code-border: #d1d9e0;
+  --hljs-fg: #24292e;
+  --hljs-comment: #6a737d;
+  --hljs-keyword: #d73a49;
+  --hljs-title: #6f42c1;
+  --hljs-string: #032f62;
+  --hljs-number: #005cc5;
+  --hljs-built-in: #e36209;
+  --hljs-tag: #22863a;
+  --hljs-lang-fg: #57606a;
+  --hljs-lang-bg: #eaeef2;
+  --hljs-add-fg: #22863a;
+  --hljs-add-bg: #f0fff4;
+  --hljs-del-fg: #b31d28;
+  --hljs-del-bg: #ffeef0;
+  --warn: #9a6700;
+  --notice-bg: #fff8c5;
+  --notice-border: #d4a72c;
+  --notice-text: #633c01;
+  --mark-bg: #fef08a;
+  --mark-fg: var(--text);
+  --alert-note-bg: #ddf4ff;
+  --alert-tip-bg: #dafbe1;
+  --alert-important-bg: #fbefff;
+  --alert-warning-bg: #fff8c5;
+  --alert-caution-bg: #ffebe9;
+  --font-serif: Georgia, 'Times New Roman', serif;
+  --font-sans: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --content-max: 42rem;
+  --shadow-sm: 0 1px 2px rgb(31 35 40 / 0.08);
+  --shadow-md: 0 4px 12px rgb(31 35 40 / 0.12);
+}
+
+@media (prefers-color-scheme: dark) {
+  [data-theme='github'][data-scheme='auto'] {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --text: #f0f6fc;
+    --muted: #9198a1;
+    --border: #30363d;
+    --accent: #4493f8;
+    --accent-hover: #74b6ff;
+    --danger: #ff7b72;
+    --danger-bg: #3d1214;
+    --code-bg: #161b22;
+    --code-border: #30363d;
+    --hljs-fg: #c9d1d9;
+    --hljs-comment: #8b949e;
+    --hljs-keyword: #ff7b72;
+    --hljs-title: #d2a8ff;
+    --hljs-string: #a5d6ff;
+    --hljs-number: #79c0ff;
+    --hljs-built-in: #ffa657;
+    --hljs-tag: #7ee787;
+    --hljs-lang-fg: #8b949e;
+    --hljs-lang-bg: #21262d;
+    --hljs-add-fg: #aff5b4;
+    --hljs-add-bg: #033a16;
+    --hljs-del-fg: #ffdcd7;
+    --hljs-del-bg: #67060c;
+    --warn: #d29922;
+    --notice-bg: #3d2e00;
+    --notice-border: #9e6a03;
+    --notice-text: #f0c14b;
+    --mark-bg: #6b5a10;
+    --mark-fg: var(--text);
+    --alert-note-bg: #122e47;
+    --alert-tip-bg: #12261e;
+    --alert-important-bg: #2a1a3d;
+    --alert-warning-bg: #3d2e00;
+    --alert-caution-bg: #3d1214;
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+    --shadow-md: 0 4px 12px rgb(0 0 0 / 0.5);
+  }
+}
+
+[data-theme='github'][data-scheme='dark'] {
+  --bg: #0d1117;
+  --surface: #161b22;
+  --text: #f0f6fc;
+  --muted: #9198a1;
+  --border: #30363d;
+  --accent: #4493f8;
+  --accent-hover: #74b6ff;
+  --danger: #ff7b72;
+  --danger-bg: #3d1214;
+  --code-bg: #161b22;
+  --code-border: #30363d;
+  --hljs-fg: #c9d1d9;
+  --hljs-comment: #8b949e;
+  --hljs-keyword: #ff7b72;
+  --hljs-title: #d2a8ff;
+  --hljs-string: #a5d6ff;
+  --hljs-number: #79c0ff;
+  --hljs-built-in: #ffa657;
+  --hljs-tag: #7ee787;
+  --hljs-lang-fg: #8b949e;
+  --hljs-lang-bg: #21262d;
+  --hljs-add-fg: #aff5b4;
+  --hljs-add-bg: #033a16;
+  --hljs-del-fg: #ffdcd7;
+  --hljs-del-bg: #67060c;
+  --warn: #d29922;
+  --notice-bg: #3d2e00;
+  --notice-border: #9e6a03;
+  --notice-text: #f0c14b;
+  --mark-bg: #6b5a10;
+  --mark-fg: var(--text);
+  --alert-note-bg: #122e47;
+  --alert-tip-bg: #12261e;
+  --alert-important-bg: #2a1a3d;
+  --alert-warning-bg: #3d2e00;
+  --alert-caution-bg: #3d1214;
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-md: 0 4px 12px rgb(0 0 0 / 0.5);
+}

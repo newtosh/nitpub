@@ -1,0 +1,17 @@
+[Unit]
+Description=nitpub ActivityPub server (second instance)
+After=network-online.target caddy.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=nitpub
+Group=nitpub
+WorkingDirectory=/var/lib/nitpub-instance2
+Environment=NITPUB_CONFIG=/etc/nitpub/instance2/config.toml
+ExecStart=/usr/local/bin/nitpub
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

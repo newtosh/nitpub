@@ -1,0 +1,29 @@
+[home]
+recent_count = 5
+
+[archive]
+mode = "pagination"
+page_size = 10
+
+[search]
+enabled = true
+
+[[nav]]
+label = "Posts"
+path = "/posts"
+icon = "newspaper"
+
+[[nav]]
+label = "About"
+path = "/about"
+icon = "user"
+
+[[pages]]
+path = "/about"
+type = "markdown"
+file = "pages/about.md"
+
+[[pages]]
+path = "/links"
+type = "links"
+file = "pages/links.links.toml"

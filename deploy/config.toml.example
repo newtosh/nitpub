@@ -1,0 +1,58 @@
+# Instance configuration template (not committed per deployment).
+# Copy to /etc/nitpub/config.toml on your server (mode 640, root:<system_user>).
+# Environment variables override these values when set (see internal/config/config.go).
+
+domain = "blog.example.com"
+port = 8080
+data_dir = "/var/lib/nitpub"
+
+# Site name shown in the header and browser tab. Defaults to "nitpub" if
+# unset — set this before first launch; it's also editable later, but a
+# fresh instance shouldn't sit branded as the software's own name.
+title = "My Blog"
+
+# Federation handle: acct:{actor}@{domain} — choose any local username for your instance.
+actor = "user"
+
+# Generate for production: openssl rand -hex 32
+# Retained for production mode checks; admin passwords live in the database.
+secret = "CHANGE-ME"
+
+http = false
+
+# User that owns data_dir and runs the systemd service.
+system_user = "nitpub"
+
+# Git checkout used by deploy/update.sh on dev VPS hosts.
+# repo_path = "/var/lib/nitpub/src"
+
+# Self-hosted GoatCounter analytics (optional, off by default). See
+# deploy/README.md's "GoatCounter analytics" section for provisioning.
+# analytics_enabled = false
+# analytics_api_token = "CHANGE-ME"
+# analytics_base_url = "http://127.0.0.1:8181"
+
+# Required only if this GoatCounter instance ever hosts a second site
+# (e.g. analytics for another app on the same VPS) — otherwise leave
+# unset and nitpub relies on GoatCounter's single-site fallback. Set
+# this to the exact -vhost value used when creating nitpub's own site
+# (`goatcounter db create site -vhost=...`, deploy/README.md step 3).
+# When using a public stats subdomain for the beacon/dashboard, that
+# -vhost is the subdomain itself (e.g. "stats.blog.example.com").
+# analytics_vhost = "stats.blog.example.com"
+
+# Public GoatCounter URL (stats subdomain). When analytics_enabled is
+# true and this is set, nitpub (1) shows an "Open GoatCounter" link on
+# the Analytics dashboard and (2) auto-injects the count.js tracking
+# beacon into every public page — no manual <script> paste. Requires
+# Caddy's stats.{domain} block with /count and /count.js left public
+# (see deploy/Caddyfile).
+# analytics_public_url = "https://stats.blog.example.com"
+
+# Required only alongside analytics_public_url above: widens the admin
+# session cookie so the stats subdomain can share it with Caddy's
+# forward_auth check. Must cover both this instance's domain and the
+# stats subdomain — e.g. ".example.com" for blog.example.com and
+# stats.example.com. Leave unset otherwise; widening this cookie is a
+# deliberate tradeoff (see internal/auth.Service's cookieDomain comment).
+# session_cookie_domain = ".example.com"

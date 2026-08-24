@@ -1,0 +1,20 @@
+[Unit]
+Description=GoatCounter analytics (localhost-only, for nitpub)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=goatcounter
+Group=goatcounter
+WorkingDirectory=/var/lib/goatcounter
+ExecStart=/usr/local/bin/goatcounter serve -listen=127.0.0.1:8181 -db=sqlite+./db/goatcounter.sqlite3 -automigrate
+Restart=on-failure
+RestartSec=5
+
+# Not named nitpub*.service — deploy/update.sh's restart loop only
+# matches that glob, so this unit is never touched by a nitpub deploy.
+# Restart/upgrade it manually when you update the GoatCounter binary.
+
+[Install]
+WantedBy=multi-user.target

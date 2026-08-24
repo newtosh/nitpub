@@ -1,0 +1,613 @@
+/* GitHub-style markdown body */
+.markdown-body {
+  line-height: 1.75;
+  font-size: 1.05rem;
+  word-wrap: break-word;
+}
+
+.markdown-body > :first-child {
+  margin-top: 0;
+}
+
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4 {
+  font-family: var(--font-serif);
+  line-height: 1.3;
+  margin: 1.5rem 0 0.75rem;
+}
+
+.markdown-body h1 { font-size: 1.75rem; }
+.markdown-body h2 { font-size: 1.45rem; }
+.markdown-body h3 { font-size: 1.2rem; }
+
+.markdown-body p,
+.markdown-body ul,
+.markdown-body ol,
+.markdown-body pre,
+.markdown-body blockquote,
+.markdown-body table {
+  margin: 0 0 1rem;
+}
+
+/* Alert paragraphs use tighter spacing (see .markdown-alert rules below). */
+.markdown-body .markdown-alert > p + p {
+  margin-top: 0.15rem;
+}
+
+.markdown-body ul,
+.markdown-body ol {
+  padding-left: 1.5rem;
+}
+
+.markdown-body li + li {
+  margin-top: 0.25rem;
+}
+
+.markdown-body blockquote {
+  border-left: 3px solid var(--border);
+  margin-left: 0;
+  padding: 0.25rem 0 0.25rem 1rem;
+  color: var(--muted);
+}
+
+.markdown-body pre {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  overflow: visible;
+}
+
+.markdown-body .code-block {
+  position: relative;
+  margin: 0 0 1rem;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--code-border);
+  background: var(--code-bg);
+}
+
+.markdown-body .code-block pre {
+  margin: 0;
+  padding: 1rem 1rem 0.85rem;
+  overflow-x: auto;
+  font-size: 0.88rem;
+  line-height: 1.55;
+  background: var(--code-bg);
+  color: var(--hljs-fg);
+}
+
+.markdown-body .code-block code.hljs {
+  padding: 0;
+  background: transparent;
+  font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, monospace;
+}
+
+.markdown-body .code-lang {
+  display: block;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--hljs-lang-fg);
+  background: var(--hljs-lang-bg);
+  border-bottom: 1px solid var(--code-border);
+  font-family: var(--font-sans);
+}
+
+.markdown-body :not(pre) > code {
+  background: var(--border);
+  padding: 0.15em 0.35em;
+  border-radius: 4px;
+  font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, monospace;
+  font-size: 0.9em;
+}
+
+.markdown-body img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+.markdown-body .figure {
+  margin: 1.25rem 0;
+  border: 1px solid var(--code-border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.markdown-body .figure img {
+  width: 100%;
+  margin: 0;
+  border-radius: 0;
+}
+
+.markdown-body .figure-caption {
+  margin: 0;
+  padding: 0.65rem 0.85rem;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--muted);
+  border-top: 1px solid var(--border);
+}
+
+.markdown-body .figure-caption a {
+  color: var(--accent);
+}
+
+.markdown-body .figure-caption mark {
+  background: color-mix(in srgb, var(--warn) 35%, transparent);
+  padding: 0 0.15em;
+}
+
+.markdown-body table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+
+.markdown-body th,
+.markdown-body td {
+  border: 1px solid var(--border);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+}
+
+.markdown-body th {
+  background: var(--surface);
+}
+
+.markdown-body ul.contains-task-list {
+  padding-left: 1.5rem;
+}
+
+.markdown-body .task-list-item {
+  list-style: none;
+}
+
+.markdown-body .task-list-item-checkbox {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 1em;
+  height: 1em;
+  margin: 0 0.5em 0.15em 0;
+  border: 1.5px solid var(--muted);
+  border-radius: 0.25em;
+  background: var(--bg);
+  vertical-align: text-bottom;
+  cursor: default;
+  pointer-events: none;
+}
+
+.markdown-body .task-list-item-checkbox:checked {
+  border-color: var(--accent);
+  background-color: var(--accent);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
+  background-size: 0.7em;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.markdown-body .task-list-item-checkbox:disabled {
+  opacity: 1;
+}
+
+.markdown-body mark {
+  background: var(--mark-bg);
+  color: var(--mark-fg);
+  padding: 0 0.15em;
+}
+
+.markdown-body del {
+  color: var(--muted);
+}
+
+/* Phosphor icon shortcodes (":name:") */
+.markdown-body .icon-phosphor {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: -0.125em;
+}
+.markdown-body .icon-phosphor svg {
+  width: 1em;
+  height: 1em;
+  fill: currentColor;
+}
+.markdown-body .icon-phosphor--pending {
+  /* Literal ":name:" text while the fetch is in flight — same look as the
+     surrounding prose, not a layout jump once the real icon swaps in. */
+  color: inherit;
+}
+
+/* Rich embeds */
+.markdown-body .embed {
+  margin: 1.25rem 0;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.markdown-body .embed-video {
+  position: relative;
+}
+
+/* Vimeo / legacy iframe embeds */
+.markdown-body .embed-video:not(.yt-facade) {
+  padding-top: 56.25%;
+}
+
+/* YouTube click-to-play facade */
+.markdown-body .yt-facade {
+  position: relative;
+  background: #000;
+  cursor: pointer;
+}
+
+.markdown-body .yt-facade-btn {
+  display: block;
+  position: relative;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  aspect-ratio: 16 / 9;
+}
+
+.markdown-body .yt-facade-poster {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.markdown-body .yt-facade-play {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 68px;
+  height: 48px;
+  background: no-repeat center/contain;
+  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 68 48"><path d="M66.52 7.74c-.78-2.93-2.49-5.41-5.42-6.19C55.79.13 34 0 34 0S12.21.13 6.9 1.55c-2.93.78-4.63 3.26-5.42 6.19C.06 13.05 0 24 0 24s.06 10.95 1.48 16.26c.78 2.93 2.49 5.41 5.42 6.19C12.21 47.87 34 48 34 48s21.79-.13 27.1-1.55c2.93-.78 4.64-3.26 5.42-6.19C67.94 34.95 68 24 68 24s-.06-10.95-1.48-16.26z" fill="red"/><path d="M45 24 27 14v20" fill="white"/></svg>');
+  filter: grayscale(100%);
+  transition: filter 0.1s cubic-bezier(0, 0, 0.2, 1);
+  pointer-events: none;
+}
+
+.markdown-body .yt-facade-btn:hover .yt-facade-play,
+.markdown-body .yt-facade-btn:focus-visible .yt-facade-play {
+  filter: none;
+}
+
+.markdown-body .yt-facade-badge {
+  position: absolute;
+  right: 0.65rem;
+  bottom: 0.65rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.28rem 0.55rem;
+  border-radius: 4px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: #fff;
+  background: rgb(0 0 0 / 72%);
+  font-family: var(--font-sans);
+  pointer-events: none;
+}
+
+.markdown-body .yt-facade-external-icon {
+  width: 0.85rem;
+  height: 0.85rem;
+  flex-shrink: 0;
+}
+
+.markdown-body .yt-facade--active {
+  cursor: unset;
+  aspect-ratio: 16 / 9;
+}
+
+.markdown-body .yt-facade--active iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.markdown-body .embed-video iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.markdown-body .embed-audio iframe {
+  width: 100%;
+  height: 152px;
+  border: 0;
+  display: block;
+}
+
+/* Article link cards (unfurled via /api/unfurl) */
+.markdown-body .link-card {
+  display: block;
+}
+
+.markdown-body .link-card-inner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  color: inherit;
+  text-decoration: none;
+}
+
+.markdown-body .link-card-inner:has(.link-card-image) {
+  grid-template-columns: 7.5rem minmax(0, 1fr);
+}
+
+@media (min-width: 32rem) {
+  .markdown-body .link-card-inner:has(.link-card-image) {
+    grid-template-columns: 10rem minmax(0, 1fr);
+  }
+}
+
+.markdown-body .link-card-image {
+  width: 100%;
+  height: 100%;
+  min-height: 5.5rem;
+  object-fit: cover;
+  margin: 0;
+  border-radius: 0;
+  border-right: 1px solid var(--border);
+}
+
+.markdown-body .link-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.85rem 1rem;
+  min-width: 0;
+}
+
+.markdown-body .link-card-site {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.markdown-body .link-card-title {
+  font-family: var(--font-serif);
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--text);
+}
+
+.markdown-body .link-card-desc {
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.markdown-body .link-card--pending .link-card-fallback {
+  display: block;
+  padding: 0.85rem 1rem;
+  color: var(--accent);
+  word-break: break-all;
+}
+
+.markdown-body .link-card-inner:hover .link-card-title {
+  color: var(--accent);
+}
+
+.post-card :deep(.link-card) {
+  margin-top: 0.75rem;
+}
+
+.post-card :deep(.link-card-image) {
+  min-height: 4.5rem;
+}
+
+/* GitHub alerts: github-base + github-colors-light imported in main.ts */
+.markdown-body .markdown-alert {
+  color: var(--text);
+  border-radius: 6px;
+}
+
+.markdown-body .markdown-alert p {
+  margin: 0;
+}
+
+.markdown-body .markdown-alert .markdown-alert-title {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.25;
+  margin-bottom: 0.35rem;
+}
+
+.markdown-body .markdown-alert .markdown-alert-title svg {
+  width: 1em;
+  height: 1em;
+  min-width: 16px;
+  min-height: 16px;
+  max-width: 16px;
+  max-height: 16px;
+  flex-shrink: 0;
+  display: inline-block;
+  vertical-align: text-bottom;
+}
+
+.markdown-body .markdown-alert-note {
+  background-color: var(--alert-note-bg);
+}
+
+.markdown-body .markdown-alert-tip {
+  background-color: var(--alert-tip-bg);
+}
+
+.markdown-body .markdown-alert-important {
+  background-color: var(--alert-important-bg);
+}
+
+.markdown-body .markdown-alert-warning {
+  background-color: var(--alert-warning-bg);
+}
+
+.markdown-body .markdown-alert-caution {
+  background-color: var(--alert-caution-bg);
+}
+
+/* Editor chrome */
+.md-editor {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.md-editor-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+.md-editor-tabs .info-tip {
+  margin-left: 0.4rem;
+}
+
+.md-editor-tabs button {
+  font: inherit;
+  font-size: 0.9rem;
+  padding: 0.55rem 1rem;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+
+.md-editor-tabs button.active {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+  background: var(--surface);
+}
+
+.md-editor-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  padding: 0.5rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.md-editor-toolbar button {
+  font: inherit;
+  font-size: 0.8rem;
+  padding: 0.3rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.md-editor-toolbar button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.md-editor-toolbar .sep {
+  width: 1px;
+  background: var(--border);
+  margin: 0 0.25rem;
+  align-self: stretch;
+}
+
+.md-editor textarea {
+  width: 100%;
+  min-height: 16rem;
+  border: none;
+  padding: 1rem;
+  font: inherit;
+  font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, monospace;
+  /* iOS Safari auto-zooms on focus when an input's font-size is under 16px.
+     This selector's specificity matches MarkdownEditor.vue's own scoped
+     `textarea { font-size: 1rem }` rule, so whichever loads later in the
+     cascade wins — this one was winning and shipping 14.7px. */
+  font-size: 1rem;
+  line-height: 1.6;
+  resize: vertical;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.md-editor textarea:focus {
+  outline: none;
+}
+
+.md-editor-preview {
+  min-height: 16rem;
+  padding: 1rem;
+  background: var(--surface);
+}
+
+.preview-mode-switch {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 0.85rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+.preview-mode-switch button {
+  font: inherit;
+  font-size: 0.8rem;
+  padding: 0.25rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.preview-mode-switch button.active {
+  color: var(--text);
+  background: var(--bg);
+  border-color: var(--muted);
+}
+.preview-mode-switch .info-tip {
+  margin-left: 0.1rem;
+}
+
+.md-editor-hint {
+  margin: 0;
+  padding: 0.5rem 1rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.md-editor-upload-error {
+  color: var(--danger);
+  font-size: 0.85rem;
+  padding: 0 1rem 0.5rem;
+}

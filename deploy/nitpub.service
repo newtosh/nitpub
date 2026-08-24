@@ -1,0 +1,20 @@
+[Unit]
+Description=nitpub ActivityPub server
+After=network-online.target caddy.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=nitpub
+Group=nitpub
+WorkingDirectory=/var/lib/nitpub
+ExecStart=/usr/local/bin/nitpub
+Restart=on-failure
+RestartSec=5
+
+# Config: /etc/nitpub/config.toml (see deploy/config.toml.example).
+# Optional env overrides for containers or emergencies:
+# EnvironmentFile=-/etc/nitpub/env
+
+[Install]
+WantedBy=multi-user.target

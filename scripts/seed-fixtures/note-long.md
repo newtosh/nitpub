@@ -1,0 +1,1 @@
+This note is intentionally long so the feed preview truncates and shows **Read more**. It stays text-only — no images, callouts, or embeds — so you can compare truncation against richer post types on the index. The body needs to exceed the feed preview limit while staying under the five-hundred-character note cap enforced by the API.

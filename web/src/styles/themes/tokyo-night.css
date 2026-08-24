@@ -1,0 +1,129 @@
+/* Tokyo Night — day light / night dark (palette: wixdaq.github.io/Tokyo-Night-Website) */
+[data-theme='tokyo-night'][data-scheme='light'],
+[data-theme='tokyo-night'][data-scheme='auto'] {
+  --bg: #e1e2e7;
+  --surface: #f0f1f5;
+  --text: #343b58;
+  --muted: #585c6f;
+  --border: #c4c8da;
+  --accent: #2e7de9;
+  --accent-hover: #1e5fb8;
+  --danger: #c64343;
+  --danger-bg: #f5e0e0;
+  --code-bg: #e9eaf0;
+  --code-border: #c4c8da;
+  --hljs-fg: #565a6e;
+  --hljs-comment: #9699a3;
+  --hljs-keyword: #5a4a78;
+  --hljs-title: #0f4b6e;
+  --hljs-string: #485e30;
+  --hljs-number: #965027;
+  --hljs-built-in: #8f5e15;
+  --hljs-tag: #8c4351;
+  --hljs-lang-fg: #585c6f;
+  --hljs-lang-bg: #d5d6db;
+  --hljs-add-fg: #485e30;
+  --hljs-add-bg: #d8f0e0;
+  --hljs-del-fg: #8c4351;
+  --hljs-del-bg: #f5e0e0;
+  --warn: #8c6c3c;
+  --notice-bg: #f0e8d0;
+  --notice-border: #c4a86c;
+  --notice-text: #5c4a28;
+  --mark-bg: #fff0c0;
+  --mark-fg: var(--text);
+  --alert-note-bg: #d8e4f8;
+  --alert-tip-bg: #d8f0e0;
+  --alert-important-bg: #e8d8f8;
+  --alert-warning-bg: #f0e8d0;
+  --alert-caution-bg: #f5e0e0;
+  --font-serif: Georgia, 'Times New Roman', serif;
+  --font-sans: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --content-max: 42rem;
+  --shadow-sm: 0 1px 2px rgb(52 59 88 / 0.1);
+  --shadow-md: 0 4px 12px rgb(52 59 88 / 0.14);
+}
+
+@media (prefers-color-scheme: dark) {
+  [data-theme='tokyo-night'][data-scheme='auto'] {
+    --bg: #1a1b26;
+    --surface: #24283b;
+    --text: #c0caf5;
+    --muted: #9aa5ce;
+    --border: #414868;
+    --accent: #7aa2f7;
+    --accent-hover: #9eceff;
+    --danger: #f7768e;
+    --danger-bg: #3d2230;
+    --code-bg: #24283b;
+    --code-border: #414868;
+    --hljs-fg: #9aa5ce;
+    --hljs-comment: #565f89;
+    --hljs-keyword: #bb9af7;
+    --hljs-title: #7dcfff;
+    --hljs-string: #9ece6a;
+    --hljs-number: #ff9e64;
+    --hljs-built-in: #e0af68;
+    --hljs-tag: #f7768e;
+    --hljs-lang-fg: #9aa5ce;
+    --hljs-lang-bg: #1a1b26;
+    --hljs-add-fg: #9ece6a;
+    --hljs-add-bg: #1a3d2a;
+    --hljs-del-fg: #f7768e;
+    --hljs-del-bg: #3d2230;
+    --warn: #e0af68;
+    --notice-bg: #3d3528;
+    --notice-border: #e0af68;
+    --notice-text: #e0af68;
+    --mark-bg: #5a4f38;
+    --mark-fg: var(--text);
+    --alert-note-bg: #1a2a4a;
+    --alert-tip-bg: #1a3d2a;
+    --alert-important-bg: #2a1a4a;
+    --alert-warning-bg: #3d3528;
+    --alert-caution-bg: #3d2230;
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+    --shadow-md: 0 4px 12px rgb(0 0 0 / 0.5);
+  }
+}
+
+[data-theme='tokyo-night'][data-scheme='dark'] {
+  --bg: #1a1b26;
+  --surface: #24283b;
+  --text: #c0caf5;
+  --muted: #9aa5ce;
+  --border: #414868;
+  --accent: #7aa2f7;
+  --accent-hover: #9eceff;
+  --danger: #f7768e;
+  --danger-bg: #3d2230;
+  --code-bg: #24283b;
+  --code-border: #414868;
+  --hljs-fg: #9aa5ce;
+  --hljs-comment: #565f89;
+  --hljs-keyword: #bb9af7;
+  --hljs-title: #7dcfff;
+  --hljs-string: #9ece6a;
+  --hljs-number: #ff9e64;
+  --hljs-built-in: #e0af68;
+  --hljs-tag: #f7768e;
+  --hljs-lang-fg: #9aa5ce;
+  --hljs-lang-bg: #1a1b26;
+  --hljs-add-fg: #9ece6a;
+  --hljs-add-bg: #1a3d2a;
+  --hljs-del-fg: #f7768e;
+  --hljs-del-bg: #3d2230;
+  --warn: #e0af68;
+  --notice-bg: #3d3528;
+  --notice-border: #e0af68;
+  --notice-text: #e0af68;
+  --mark-bg: #5a4f38;
+  --mark-fg: var(--text);
+  --alert-note-bg: #1a2a4a;
+  --alert-tip-bg: #1a3d2a;
+  --alert-important-bg: #2a1a4a;
+  --alert-warning-bg: #3d3528;
+  --alert-caution-bg: #3d2230;
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-md: 0 4px 12px rgb(0 0 0 / 0.5);
+}

@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!-- Static, not just the JS-set one in useTheme.ts: Safari picks the
+         status bar's tint at initial paint, before Vue mounts and can set
+         theme-color dynamically — by then it's too late to change what
+         already rendered. These are the default theme's (github) colors;
+         the JS version keeps it correct after a user switches theme or
+         light/dark within a session. -->
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f6f8fa" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#161b22" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <title>nitpub</title>
+    <script>
+      (function () {
+        try {
+          var s = localStorage.getItem('nitpub-color-scheme')
+          document.documentElement.dataset.scheme =
+            s === 'light' || s === 'dark' || s === 'auto' ? s : 'auto'
+        } catch (e) {
+          document.documentElement.dataset.scheme = 'auto'
+        }
+      })()
+    </script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

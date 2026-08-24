@@ -1,0 +1,28 @@
+{$DOMAIN} {
+	encode gzip
+	header Referrer-Policy "strict-origin-when-cross-origin"
+	reverse_proxy localhost:8080
+}
+
+# Optional: GoatCounter dashboard + public count beacon on a stats subdomain.
+# See deploy/README.md's "GoatCounter analytics (optional)" section.
+#
+# /count and /count.js stay public — anonymous visitors need them for the
+# auto-injected tracking beacon. Everything else (the dashboard UI) is gated
+# by nitpub's admin session via forward_auth. Point forward_auth at this
+# instance's own port (8080 below; nwtn.sh uses 8081).
+#
+# stats.{$DOMAIN} {
+# 	@goatPublic path /count /count.js
+# 	handle @goatPublic {
+# 		reverse_proxy localhost:8181
+# 	}
+# 	handle {
+# 		forward_auth localhost:8080 {
+# 			uri /api/admin/authcheck
+# 		}
+# 		reverse_proxy localhost:8181 {
+# 			header_up Cookie "{http.request.header.Cookie}; access-token={$GOATCOUNTER_ACCESS_TOKEN}"
+# 		}
+# 	}
+# }

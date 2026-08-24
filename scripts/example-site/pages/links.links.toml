@@ -1,0 +1,12 @@
+title = "Links"
+
+[[links]]
+title = "RSS feed"
+url = "/feed.xml"
+description = "Subscribe to posts"
+icon = "rss"
+
+[[links]]
+title = "All posts"
+url = "/posts"
+icon = "newspaper"

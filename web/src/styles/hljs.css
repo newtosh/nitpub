@@ -1,0 +1,80 @@
+/* Syntax highlighting — token values live in theme packs; mappings only here. */
+
+.markdown-body .code-block .hljs {
+  color: var(--hljs-fg);
+  background: transparent;
+}
+
+.markdown-body .code-block .hljs-comment,
+.markdown-body .code-block .hljs-quote,
+.markdown-body .code-block .hljs-formula,
+.markdown-body .code-block .hljs-code {
+  color: var(--hljs-comment);
+}
+
+.markdown-body .code-block .hljs-meta {
+  color: var(--hljs-meta, var(--hljs-comment));
+}
+
+.markdown-body .code-block .hljs-keyword,
+.markdown-body .code-block .hljs-selector-tag,
+.markdown-body .code-block .hljs-doctag,
+.markdown-body .code-block .hljs-template-tag,
+.markdown-body .code-block .hljs-template-variable,
+.markdown-body .code-block .hljs-type,
+.markdown-body .code-block .hljs-variable.language_ {
+  color: var(--hljs-keyword);
+}
+
+.markdown-body .code-block .hljs-title,
+.markdown-body .code-block .hljs-title.class_,
+.markdown-body .code-block .hljs-title.class_.inherited__,
+.markdown-body .code-block .hljs-title.function_,
+.markdown-body .code-block .hljs-section {
+  color: var(--hljs-title);
+}
+
+.markdown-body .code-block .hljs-string,
+.markdown-body .code-block .hljs-regexp,
+.markdown-body .code-block .hljs-meta .hljs-string {
+  color: var(--hljs-string);
+}
+
+.markdown-body .code-block .hljs-attr,
+.markdown-body .code-block .hljs-attribute,
+.markdown-body .code-block .hljs-literal,
+.markdown-body .code-block .hljs-number,
+.markdown-body .code-block .hljs-operator,
+.markdown-body .code-block .hljs-selector-attr,
+.markdown-body .code-block .hljs-selector-class,
+.markdown-body .code-block .hljs-selector-id,
+.markdown-body .code-block .hljs-variable {
+  color: var(--hljs-number);
+}
+
+.markdown-body .code-block .hljs-built_in,
+.markdown-body .code-block .hljs-symbol,
+.markdown-body .code-block .hljs-bullet {
+  color: var(--hljs-built-in);
+}
+
+.markdown-body .code-block .hljs-name,
+.markdown-body .code-block .hljs-selector-pseudo {
+  color: var(--hljs-tag);
+}
+
+.markdown-body .code-block .hljs-subst,
+.markdown-body .code-block .hljs-emphasis,
+.markdown-body .code-block .hljs-strong {
+  color: var(--hljs-fg);
+}
+
+.markdown-body .code-block .hljs-addition {
+  color: var(--hljs-add-fg);
+  background-color: var(--hljs-add-bg);
+}
+
+.markdown-body .code-block .hljs-deletion {
+  color: var(--hljs-del-fg);
+  background-color: var(--hljs-del-bg);
+}

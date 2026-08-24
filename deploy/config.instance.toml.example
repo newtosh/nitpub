@@ -1,0 +1,25 @@
+# Second-instance config template — same binary, separate everything else.
+# Copy to e.g. /etc/nitpub/instance2/config.toml (mode 640, root:<system_user>).
+# Pair with deploy/nitpub-instance.service.example (rename the unit, point
+# its Environment=NITPUB_CONFIG at this file's path) and a second Caddy
+# site block (see deploy/Caddyfile) reverse-proxying a different port.
+
+domain = "second.example.com"
+port = 8081
+data_dir = "/var/lib/nitpub-instance2"
+
+# Site name shown in the header and browser tab — set per instance.
+title = "My Second Blog"
+
+# Federation handle: acct:{actor}@{domain}
+actor = "user"
+
+# Generate for production: openssl rand -hex 32 — must differ from every
+# other instance's secret.
+secret = "CHANGE-ME"
+
+http = false
+
+system_user = "nitpub"
+
+# repo_path = "/var/lib/nitpub/src"

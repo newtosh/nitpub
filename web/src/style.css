@@ -1,0 +1,48 @@
+@import './styles/tokens.css';
+@import './styles/themes/github.css';
+@import './styles/themes/nord.css';
+@import './styles/themes/ayu.css';
+@import './styles/themes/tokyo-night.css';
+@import './styles/themes/catppuccin.css';
+@import './styles/themes/dracula.css';
+@import './styles/themes/monokai.css';
+@import './styles/primitives.css';
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100dvh;
+  overflow: hidden;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--text);
+  line-height: var(--leading-normal);
+}
+
+#app {
+  /* Must match .blog-layout's height (100dvh) exactly, not just floor
+     it with min-height:100vh — vh is the *largest* possible viewport
+     (toolbar hidden) while dvh tracks whichever is currently true. When
+     Safari's toolbar is showing, 100vh > 100dvh, making #app taller
+     than its own child and reopening just enough document-level
+     overflow for the whole shell (header included) to scroll with it. */
+  height: 100dvh;
+}
+
+a {
+  color: var(--accent);
+}
+
+code {
+  font-size: 0.9em;
+  background: var(--border);
+  padding: 0.1em 0.35em;
+  border-radius: var(--radius-sm);
+}
