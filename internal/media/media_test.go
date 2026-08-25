@@ -32,6 +32,31 @@ func TestSaveAndOpenPNG(t *testing.T) {
 	}
 }
 
+func TestSaveAndOpenSVG(t *testing.T) {
+	dir := t.TempDir()
+	svc, err := New(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	svg := []byte(`<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"></svg>`)
+	name, err := svc.Save(bytes.NewReader(svg), "image/svg+xml", int64(len(svg)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if filepath.Ext(name) != ".svg" {
+		t.Fatalf("ext = %q", name)
+	}
+	f, ct, err := svc.Open(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = f.Close()
+	if ct != "image/svg+xml" {
+		t.Fatalf("content-type = %q", ct)
+	}
+}
+
 func TestRejectInvalidName(t *testing.T) {
 	dir := t.TempDir()
 	svc, err := New(dir)
