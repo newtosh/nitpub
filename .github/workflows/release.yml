@@ -1,0 +1,59 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Build embedded web
+        run: |
+          cd web
+          npm ci
+          npm run build
+
+      - name: Cross-compile linux amd64/arm64
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          LDFLAGS="-X github.com/newtosh/nitpub/internal/version.Version=${VERSION}"
+          for arch in amd64 arm64; do
+            out="dist/nitpub-${VERSION}-linux-${arch}"
+            GOOS=linux GOARCH="${arch}" CGO_ENABLED=0 \
+              go build -trimpath -ldflags "${LDFLAGS}" -o "${out}" ./cmd/nitpub
+            chmod +x "${out}"
+          done
+          (
+            cd dist
+            sha256sum nitpub-${VERSION}-linux-amd64 nitpub-${VERSION}-linux-arm64 > SHA256SUMS
+          )
+          ls -la dist
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          files: |
+            dist/nitpub-${{ github.ref_name }}-linux-amd64
+            dist/nitpub-${{ github.ref_name }}-linux-arm64
+            dist/SHA256SUMS
+          generate_release_notes: true
