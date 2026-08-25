@@ -1,6 +1,6 @@
 # nitpub deployment (Advanced / ops)
 
-Deep ops (multi-instance, GoatCounter, git-pull rebuilds). Installers: root [README](../README.md) one-liner.
+Deep ops (multi-instance, GoatCounter, git-pull rebuilds). Installers: [docs.nitpub.com](https://docs.nitpub.com/) (hub: root [README](../README.md)). Product www/docs hosting: [pages.md](pages.md).
 
 **GitHub repo:** [`newtosh/nitpub`](https://github.com/newtosh/nitpub)
 
