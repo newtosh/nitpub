@@ -211,7 +211,7 @@ func Defaults() Manifest {
 			ExternalLinksNewTab: &externalLinksNewTab,
 		},
 		Footer: FooterConfig{
-			Text:           "Self-hosted notes & articles",
+			Text:           "Powered by nitpub",
 			ShowGithubLink: &showGithubLink,
 		},
 	}

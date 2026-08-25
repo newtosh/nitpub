@@ -356,7 +356,7 @@ onMounted(async () => {
         </h3>
         <label class="field">
           <span>Footer text</span>
-          <input v-model="data.manifest.footer.text" placeholder="Self-hosted notes & articles" />
+          <input v-model="data.manifest.footer.text" placeholder="Powered by nitpub" />
         </label>
         <label class="field checkbox">
           <input v-model="footerShowGithub" type="checkbox" />
