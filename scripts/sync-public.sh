@@ -21,6 +21,19 @@ EXCLUDES=(
   docs/ideation
 )
 
+# Files that live ONLY on public and must survive the wipe-and-repopulate
+# below — private intentionally doesn't track these (e.g. release.yml,
+# deleted from private in #23 specifically so it'd only exist on public).
+# Without this, the very first sync after such a deletion silently wipes
+# the public-only file too, since the sync logic below replaces public's
+# whole tree with private's rather than doing a selective merge. (This
+# is exactly how public's own release.yml went missing for a full week
+# of syncs before anyone noticed — recovered from private's pre-#23
+# history and restored alongside this fix.)
+PRESERVE=(
+  .github/workflows/release.yml
+)
+
 git fetch "$PRIVATE_REMOTE" main --quiet
 git fetch "$PUBLIC_REMOTE" main --quiet
 
@@ -84,12 +97,30 @@ git worktree add --quiet -B "$BRANCH" "$WORKTREE" "$PUBLIC_REMOTE/main"
 
 # Replace the whole tracked tree with private main's, then drop excludes —
 # simplest way to keep public's tree an exact filtered mirror without
-# manually diffing adds/deletes each run.
+# manually diffing adds/deletes each run. PRESERVE files are copied out
+# before the wipe and restored after, since they don't exist in private's
+# tree at all and would otherwise just be deleted.
+PRESERVE_HOLD="$(mktemp -d)"
+for path in "${PRESERVE[@]}"; do
+  if [[ -e "${WORKTREE}/${path}" ]]; then
+    mkdir -p "$(dirname "${PRESERVE_HOLD}/${path}")"
+    cp -a "${WORKTREE}/${path}" "${PRESERVE_HOLD}/${path}"
+  fi
+done
+
 git -C "$WORKTREE" rm -rq .
 git archive "$PRIVATE_REMOTE/main" | tar -x -C "$WORKTREE"
 for path in "${EXCLUDES[@]}"; do
   rm -rf "${WORKTREE:?}/${path}"
 done
+
+for path in "${PRESERVE[@]}"; do
+  if [[ -e "${PRESERVE_HOLD}/${path}" ]]; then
+    mkdir -p "$(dirname "${WORKTREE}/${path}")"
+    cp -a "${PRESERVE_HOLD}/${path}" "${WORKTREE}/${path}"
+  fi
+done
+rm -rf "$PRESERVE_HOLD"
 
 git -C "$WORKTREE" add -A
 
