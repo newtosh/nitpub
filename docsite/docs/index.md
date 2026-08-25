@@ -6,7 +6,7 @@ This site is the **canonical install guide**. The [product site](https://www.nit
 
 ## Start here
 
-1. [Install (golden path)](/guide/install) — one-liner → first published note
+1. [Quick install](/guide/install) — one-liner → first published note
 2. [Federation](/guide/federation) — visible federated reply
 3. [Analytics](/guide/analytics) — optional GoatCounter
 4. [Updates](/guide/updates) — `nitpub update --apply`

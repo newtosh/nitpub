@@ -10,4 +10,4 @@ Most tools force a choice: microblog *or* long-form. nitpub keeps both first-cla
 
 ## Try the install
 
-The golden path is a one-liner on a Debian/Ubuntu VPS — see the [install docs](https://docs.nitpub.com/guide/install).
+The quick install is a one-liner on a Debian/Ubuntu VPS — see the [install docs](https://docs.nitpub.com/guide/install).

@@ -39,6 +39,7 @@ LAST_SYNC_LINE="$(git log "$PUBLIC_REMOTE/main" --format='%B' 2>/dev/null \
   | grep -m1 -E '^sync: private main @ [0-9a-f]+$' || true)"
 LAST_SYNC_SHA="${LAST_SYNC_LINE##* }"
 
+TITLES=()
 BODY_FILE="$(mktemp)"
 {
   echo "Synced from [\`nitpub-dev\`](https://github.com/${PRIVATE_REPO_SLUG}) (private) @ \`${PRIVATE_SHA}\`. Review before merging — this is the last check before private-only content would go public."
@@ -58,6 +59,7 @@ BODY_FILE="$(mktemp)"
         # here-string, which never interprets backslash escapes.
         TITLE="$(jq -r '.title' <<< "$PR_JSON")"
         PR_BODY="$(jq -r '.body // "(no description)"' <<< "$PR_JSON")"
+        TITLES+=("$TITLE")
         echo "### ${TITLE} (nitpub-dev#${num})"
         echo
         echo "$PR_BODY"
@@ -66,6 +68,14 @@ BODY_FILE="$(mktemp)"
     fi
   fi
 } > "$BODY_FILE"
+
+# A PR title that just says "sync: private main @ <sha>" is useless in a PR
+# list — surface what actually changed instead, same reasoning as the body.
+case "${#TITLES[@]}" in
+  0) PR_TITLE="sync: private main @ ${PRIVATE_SHA}" ;;
+  1) PR_TITLE="${TITLES[0]}" ;;
+  *) PR_TITLE="sync: ${TITLES[0]} (+$((${#TITLES[@]} - 1)) more)" ;;
+esac
 
 WORKTREE="$(mktemp -d)"
 trap 'git worktree remove --force "$WORKTREE" 2>/dev/null || true; rm -rf "$WORKTREE" "$BODY_FILE"' EXIT
@@ -94,5 +104,5 @@ git -C "$WORKTREE" commit --quiet -m "sync: private main @ ${PRIVATE_SHA}"
 git -C "$WORKTREE" push --force-with-lease "$PUBLIC_REMOTE" "HEAD:${BRANCH}"
 
 gh pr create --repo "$PUBLIC_REPO_SLUG" --base main --head "$BRANCH" \
-  --title "sync: private main @ ${PRIVATE_SHA}" \
+  --title "$PR_TITLE" \
   --body-file "$BODY_FILE"

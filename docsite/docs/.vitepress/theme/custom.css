@@ -1,0 +1,85 @@
+/* Repaint VitePress's default theme with the same GitHub-derived palette
+   and font stack used by the live demo blog (web/src/styles/themes/github.css)
+   — kept as separate literals here rather than importing that file, since
+   this is a different app/build with its own VitePress var names. */
+
+:root {
+  --vp-font-family-base: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --vp-font-family-mono: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, monospace;
+
+  --vp-c-bg: #ffffff;
+  --vp-c-bg-alt: #f6f8fa;
+  --vp-c-bg-elv: #ffffff;
+  --vp-c-bg-soft: #f6f8fa;
+
+  --vp-c-text-1: #1f2328;
+  --vp-c-text-2: #59636e;
+  --vp-c-text-3: #6e7781;
+
+  --vp-c-border: #d1d9e0;
+  --vp-c-divider: #d1d9e0;
+  --vp-c-gutter: #d1d9e0;
+
+  --vp-c-brand-1: #0969da;
+  --vp-c-brand-2: #0550ae;
+  --vp-c-brand-3: #033d85;
+  --vp-c-brand-soft: rgba(9, 105, 218, 0.14);
+
+  --vp-c-danger-1: #cf222e;
+  --vp-c-danger-2: var(--vp-c-danger-1);
+  --vp-c-danger-3: var(--vp-c-danger-1);
+  --vp-c-danger-soft: #ffebe9;
+
+  --vp-code-bg: #f6f8fa;
+  --vp-code-block-bg: #f6f8fa;
+  --vp-code-block-color: #1f2328;
+
+  --vp-button-brand-bg: var(--vp-c-brand-1);
+  --vp-button-brand-hover-bg: var(--vp-c-brand-2);
+  --vp-button-brand-active-bg: var(--vp-c-brand-3);
+}
+
+.dark {
+  --vp-c-bg: #0d1117;
+  --vp-c-bg-alt: #161b22;
+  --vp-c-bg-elv: #161b22;
+  --vp-c-bg-soft: #161b22;
+
+  --vp-c-text-1: #f0f6fc;
+  --vp-c-text-2: #9198a1;
+  --vp-c-text-3: #7d8590;
+
+  --vp-c-border: #30363d;
+  --vp-c-divider: #30363d;
+  --vp-c-gutter: #30363d;
+
+  --vp-c-brand-1: #4493f8;
+  --vp-c-brand-2: #74b6ff;
+  --vp-c-brand-3: #1a56c4;
+  --vp-c-brand-soft: rgba(68, 147, 248, 0.16);
+
+  --vp-c-danger-1: #ff7b72;
+  --vp-c-danger-2: var(--vp-c-danger-1);
+  --vp-c-danger-3: var(--vp-c-danger-1);
+  --vp-c-danger-soft: #3d1214;
+
+  --vp-code-bg: #161b22;
+  --vp-code-block-bg: #161b22;
+  --vp-code-block-color: #f0f6fc;
+}
+
+/* VitePress sizes the nav logo image to a fixed height with intrinsic
+   aspect ratio for width — the wordmark's ~3.78:1 ratio (vs. a square
+   icon) needs a touch more height to read at nav scale without feeling
+   cramped. */
+.VPNavBarTitle .logo {
+  height: 28px;
+}
+
+/* Swap VitePress's default plain diagonal arrow for an "open in new"
+   icon on every external link (nav and in-page content share this same
+   selector/rule shape in VitePress's own CSS — matching it here wins on
+   source order since this file loads after the default theme). */
+:is(.vp-external-link-icon, .vp-doc a[href*='://'], .vp-doc a[target='_blank']):not(:is(.no-icon, svg a, :has(img, svg)))::after {
+  --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7zM19 19H5V5h7V3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7z'/%3E%3C/svg%3E");
+}
