@@ -1,6 +1,7 @@
 package media
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"mime"
@@ -14,7 +15,7 @@ import (
 
 const maxUploadBytes = 10 << 20 // 10 MiB
 
-var safeName = regexp.MustCompile(`^[a-f0-9-]+\.(jpe?g|png|gif|webp|ico)$`)
+var safeName = regexp.MustCompile(`^[a-f0-9-]+\.(jpe?g|png|gif|webp|ico|svg)$`)
 
 // Service stores uploaded media on disk.
 type Service struct {
@@ -90,7 +91,9 @@ func (s *Service) Open(name string) (*os.File, string, error) {
 	}
 	ext := filepath.Ext(name)
 	var contentType string
-	if ext == ".ico" {
+	if ext == ".svg" {
+		contentType = "image/svg+xml"
+	} else if ext == ".ico" {
 		// mime.TypeByExtension relies on the OS's mime.types file, which
 		// often has no entry for .ico at all — fall back to
 		// application/octet-stream in that case, which browsers won't
@@ -121,6 +124,8 @@ func imageExt(sniff []byte, declared string) (ext, contentType string, ok bool) 
 	// stored and served as-is with no re-encoding.
 	case len(sniff) >= 4 && sniff[0] == 0x00 && sniff[1] == 0x00 && sniff[2] == 0x01 && sniff[3] == 0x00:
 		return ".ico", "image/x-icon", true
+	case looksLikeSVG(sniff):
+		return ".svg", "image/svg+xml", true
 	}
 	declared = strings.ToLower(strings.TrimSpace(declared))
 	switch declared {
@@ -134,7 +139,21 @@ func imageExt(sniff []byte, declared string) (ext, contentType string, ok bool) 
 		return ".webp", "image/webp", true
 	case "image/x-icon", "image/vnd.microsoft.icon":
 		return ".ico", "image/x-icon", true
+	case "image/svg+xml":
+		return ".svg", "image/svg+xml", true
 	default:
 		return "", "", false
 	}
+}
+
+// looksLikeSVG reports whether sniff looks like the start of an SVG
+// document. Unlike the other formats above, SVG is plain XML text with
+// no fixed magic-byte signature — this is the standard practical
+// heuristic (used by browsers/file-type sniffers alike): strip a
+// leading UTF-8 BOM and whitespace, then check for an XML declaration
+// or an opening <svg tag.
+func looksLikeSVG(sniff []byte) bool {
+	trimmed := bytes.TrimPrefix(sniff, []byte{0xEF, 0xBB, 0xBF})
+	trimmed = bytes.TrimLeft(trimmed, " \t\r\n")
+	return bytes.HasPrefix(trimmed, []byte("<?xml")) || bytes.HasPrefix(trimmed, []byte("<svg"))
 }
