@@ -24,6 +24,15 @@ const { pendingCount, refresh: refreshModerationBadge } = useModerationBadge()
 const site = ref<SiteConfig | null>(getCachedSiteConfig())
 const siteTitle = computed(() => site.value?.title || 'nitpub')
 
+// footer.github_url is per-instance configurable — any self-hoster can
+// point it at their own unrelated repo, not always nitpub's. Only the
+// project's own canonical repo gets the brand color split; anything
+// else stays plain muted text.
+const footerRepoPath = computed(
+  () => site.value?.footer?.github_url?.replace(/^https?:\/\/(www\.)?github\.com\//, '') ?? ''
+)
+const isNitpubRepo = computed(() => /^newtosh\/nitpub\/?$/i.test(footerRepoPath.value))
+
 function applyTitleAndFavicon() {
   document.title = siteTitle.value
   if (site.value?.branding?.favicon_url) {
@@ -294,7 +303,7 @@ function navActive(item: NavItem) {
       </main>
       <footer class="site-footer">
         <div class="site-footer-row">
-          <p>{{ site?.footer?.text || 'Self-hosted notes & articles' }}</p>
+          <p>{{ site?.footer?.text || 'Powered by nitpub' }}</p>
           <div class="site-footer-meta">
             <span v-if="site?.version" class="site-footer-version">{{ site.version }}</span>
             <a
@@ -305,18 +314,8 @@ function navActive(item: NavItem) {
               rel="noopener noreferrer"
             >
               <GithubIcon :size="14" />
-              <span>{{ site.footer.github_url.replace(/^https?:\/\/(www\.)?github\.com\//, '') }}</span>
-            </a>
-            <a
-              href="https://www.nitpub.com/"
-              class="site-footer-brand"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <span>Powered by</span>
-              <span class="site-footer-wordmark">
-                <span class="n">n</span><span class="i">i</span><span class="t">t</span><span class="pub">pub</span>
-              </span>
+              <span v-if="isNitpubRepo" class="site-footer-wordmark">newtosh/<span class="n">n</span><span class="i">i</span><span class="t">t</span><span class="pub">pub</span></span>
+              <span v-else>{{ footerRepoPath }}</span>
             </a>
           </div>
         </div>
@@ -770,7 +769,10 @@ nav a.router-link-active.nav-icon {
 .site-footer {
   border-top: 1px solid var(--border);
   padding: var(--space-5);
-  color: var(--muted);
+  /* a touch brighter than --muted (used elsewhere for lower-priority UI
+     like nav labels) — footer text is small and reads as too washed out
+     at the plain --muted shade */
+  color: color-mix(in srgb, var(--muted) 70%, var(--text) 30%);
   font-size: var(--text-xs);
 }
 .site-footer-row {
@@ -811,21 +813,11 @@ nav a.router-link-active.nav-icon {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  color: var(--muted);
+  color: inherit;
   text-decoration: none;
 }
 .site-footer-github:hover {
   color: var(--accent);
-}
-.site-footer-brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  color: var(--muted);
-  text-decoration: none;
-}
-.site-footer-brand:hover {
-  color: var(--text);
 }
 .site-footer-wordmark {
   font-weight: 700;
