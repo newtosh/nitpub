@@ -6,15 +6,21 @@ Deep ops (multi-instance, GoatCounter, git-pull rebuilds). Installers: [docs.nit
 
 ## Private → public repo sync
 
-`newtosh/nitpub-dev` (private) is the source of truth — internal plans, ops docs, and the VPS auto-deploy workflow live there only. `newtosh/nitpub` (public) is a filtered mirror: install script, `www`/`docs` Cloudflare Pages source, and the only place tags get built into GitHub Releases.
+`newtosh/nitpub-dev` (private) is the source of truth — internal plans and ops docs live there only. `newtosh/nitpub` (public) is a filtered mirror: install script, `www`/`docs` Cloudflare Pages source, and the only place tags get built into GitHub Releases.
 
-After merging to private `main`:
+For normal work, after merging to private `main`:
 
 ```bash
 scripts/sync-public.sh
 ```
 
-Diffs private `main`'s tracked tree against public `main` (excluding `.cursor/`, `docs/plans/`, `docs/tasks/`, `docs/ideation/`, and the private-only deploy workflow), and opens a PR on the public repo if anything changed. Review and merge that PR before tagging a release — `release.yml` only exists on the public repo now, so a tag only needs to reach public to ship.
+Diffs private `main`'s tracked tree against public `main` (excluding `.cursor/`, `docs/plans/`, `docs/tasks/`, `docs/ideation/`, and the private-only deploy workflow; preserving public-only files like `release.yml` that private doesn't track at all), and opens a PR on the public repo if anything changed. Review and merge that PR before tagging a release.
+
+### Critical fixes: PR public directly
+
+For something that needs to ship fast (a broken pipeline, a security fix, anything where the sync round-trip is the wrong tradeoff), open the PR directly against public instead of going through private first.
+
+**The sync mirrors private's whole tree onto public on every run** — a fix that only ever lands on public (and never gets backported) will be silently deleted the next time anyone runs `scripts/sync-public.sh`, the same way `release.yml` itself got wiped twice in one session before this rule existed. So: merge the hotfix on public first for speed, then backport the same change to private `main` right after (cherry-pick, or just re-apply it) — private stays the actual source of truth, public just got there first for that one fix.
 
 ## Configuration (all environments)
 
