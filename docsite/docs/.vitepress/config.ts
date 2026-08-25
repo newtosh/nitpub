@@ -4,7 +4,9 @@ export default defineConfig({
   title: 'nitpub',
   description: 'Self-hosted ActivityPub blog — install and operate nitpub',
   cleanUrls: true,
+  head: [['link', { rel: 'icon', href: '/favicon.svg', type: 'image/svg+xml' }]],
   themeConfig: {
+    logo: '/logo.svg',
     nav: [
       { text: 'Home', link: '/' },
       { text: 'Install', link: '/guide/install' },

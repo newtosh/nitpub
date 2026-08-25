@@ -307,6 +307,17 @@ function navActive(item: NavItem) {
               <GithubIcon :size="14" />
               <span>{{ site.footer.github_url.replace(/^https?:\/\/(www\.)?github\.com\//, '') }}</span>
             </a>
+            <a
+              href="https://www.nitpub.com/"
+              class="site-footer-brand"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <span>Powered by</span>
+              <span class="site-footer-wordmark">
+                <span class="n">n</span><span class="i">i</span><span class="t">t</span><span class="pub">pub</span>
+              </span>
+            </a>
           </div>
         </div>
       </footer>
@@ -805,6 +816,58 @@ nav a.router-link-active.nav-icon {
 }
 .site-footer-github:hover {
   color: var(--accent);
+}
+.site-footer-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--muted);
+  text-decoration: none;
+}
+.site-footer-brand:hover {
+  color: var(--text);
+}
+.site-footer-wordmark {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.site-footer-wordmark .n {
+  color: #5ea1e0;
+}
+.site-footer-wordmark .i {
+  color: #3b82c4;
+}
+.site-footer-wordmark .t {
+  color: #0969da;
+}
+.site-footer-wordmark .pub {
+  color: #033d85;
+}
+@media (prefers-color-scheme: dark) {
+  :global(html:not([data-scheme='light'])) .site-footer-wordmark .n {
+    color: #9ecbff;
+  }
+  :global(html:not([data-scheme='light'])) .site-footer-wordmark .i {
+    color: #79c0ff;
+  }
+  :global(html:not([data-scheme='light'])) .site-footer-wordmark .t {
+    color: #4493f8;
+  }
+  :global(html:not([data-scheme='light'])) .site-footer-wordmark .pub {
+    color: #1a56c4;
+  }
+}
+:global(html[data-scheme='dark']) .site-footer-wordmark .n {
+  color: #9ecbff;
+}
+:global(html[data-scheme='dark']) .site-footer-wordmark .i {
+  color: #79c0ff;
+}
+:global(html[data-scheme='dark']) .site-footer-wordmark .t {
+  color: #4493f8;
+}
+:global(html[data-scheme='dark']) .site-footer-wordmark .pub {
+  color: #1a56c4;
 }
 .site-footer-version {
   font-variant-numeric: tabular-nums;

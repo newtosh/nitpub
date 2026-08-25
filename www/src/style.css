@@ -107,6 +107,23 @@ main {
   color: var(--ink);
 }
 
+.brand .n,
+.brand-mark .n {
+  color: #5ea1e0;
+}
+.brand .i,
+.brand-mark .i {
+  color: #3b82c4;
+}
+.brand .t,
+.brand-mark .t {
+  color: #0969da;
+}
+.brand .pub,
+.brand-mark .pub {
+  color: #033d85;
+}
+
 .hero h1 {
   font-family: var(--font-display);
   font-weight: 700;
