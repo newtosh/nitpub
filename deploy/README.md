@@ -59,9 +59,19 @@ nitpub admin init --username you@example.com --offline
 ssh -t nitpub 'nitpub admin init --username you@example.com --offline'
 ```
 
-## Dev VPS: git pull deploy workflow
+## Standard update: `nitpub update --apply`
 
-Checkout lives at **`/var/lib/nitpub/src`**. After you push to GitHub, pull and rebuild on the VPS.
+The normal way to update any instance, including the demo, is the Release binary — no git checkout required:
+
+```bash
+ssh nitpub 'nitpub update --apply'
+```
+
+Downloads the matching Release, verifies `SHA256SUMS`, replaces `/usr/local/bin/nitpub`, restarts the service. Run `nitpub update` (no `--apply`) first to just check what's available. This is manual by design — it runs whenever you choose, not on every merge, since not every merge cuts a new release.
+
+## Maintainer/dev VPS: git pull deploy workflow (`--from-source`)
+
+For rebuilding from an unreleased commit instead of the latest Release, `nitpub update --apply --from-source` (or `deploy/update.sh` directly) rebuilds from a git checkout at **`/var/lib/nitpub/src`**.
 
 ### VPS layout
 
@@ -112,7 +122,7 @@ bash /var/lib/nitpub/src/deploy/link-github-remote.sh
 
 This adds `origin`, fetches, and resets to `origin/main`.
 
-### Deploy after you push
+### Rebuild from source (maintainer, not the standard path)
 
 From your laptop:
 
@@ -240,7 +250,7 @@ deploy/cutover-domain.sh blog.example.com
 
 ## Updating
 
-Binary-only hosts (golden path):
+Binary-only hosts (quick install):
 
 ```bash
 nitpub update              # check current vs. latest GitHub release — read-only

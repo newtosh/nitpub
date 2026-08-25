@@ -1,14 +1,38 @@
 :root {
-  --ink: #0c1210;
-  --ink-soft: #1a2420;
-  --paper: #e8eee9;
-  --paper-dim: #d5ddd6;
-  --mist: rgba(232, 238, 233, 0.72);
-  --accent: #3d9b7a;
-  --accent-hot: #5ec4a0;
-  --line: rgba(12, 18, 16, 0.12);
-  --font-display: 'Syne', system-ui, sans-serif;
+  --ink: #1f2328;
+  --ink-soft: #59636e;
+  --paper: #ffffff;
+  --paper-dim: #f6f8fa;
+  --mist: rgba(246, 248, 250, 0.72);
+  --accent: #0969da;
+  --accent-hot: #0550ae;
+  --line: rgba(31, 35, 40, 0.12);
+  --atmosphere-a: rgba(9, 105, 218, 0.16);
+  --atmosphere-b: rgba(31, 35, 40, 0.08);
+  --atmosphere-1: #f3f6f3;
+  --atmosphere-2: #dde5df;
   --font-body: 'IBM Plex Sans', system-ui, sans-serif;
+  /* also doubles as the site's display font for headers — matches
+     assets/brand/wordmark-*.svg, README, docs nav logo, and the app's
+     live header exactly. */
+  --font-brand: -apple-system, 'Segoe UI', system-ui, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink: #f0f6fc;
+    --ink-soft: #9198a1;
+    --paper: #0d1117;
+    --paper-dim: #161b22;
+    --mist: rgba(22, 27, 34, 0.72);
+    --accent: #4493f8;
+    --accent-hot: #74b6ff;
+    --line: rgba(240, 246, 252, 0.14);
+    --atmosphere-a: rgba(68, 147, 248, 0.14);
+    --atmosphere-b: rgba(240, 246, 252, 0.05);
+    --atmosphere-1: #161b22;
+    --atmosphere-2: #0d1117;
+  }
 }
 
 *,
@@ -18,7 +42,7 @@
 }
 
 html {
-  color-scheme: light;
+  color-scheme: light dark;
 }
 
 body {
@@ -37,9 +61,9 @@ body {
   inset: 0;
   z-index: -1;
   background:
-    radial-gradient(900px 480px at 12% -10%, rgba(61, 155, 122, 0.22), transparent 55%),
-    radial-gradient(700px 420px at 90% 8%, rgba(26, 36, 32, 0.14), transparent 50%),
-    linear-gradient(165deg, #f3f6f3 0%, var(--paper) 42%, #dde5df 100%);
+    radial-gradient(900px 480px at 12% -10%, var(--atmosphere-a), transparent 55%),
+    radial-gradient(700px 420px at 90% 8%, var(--atmosphere-b), transparent 50%),
+    linear-gradient(165deg, var(--atmosphere-1) 0%, var(--paper) 42%, var(--atmosphere-2) 100%);
 }
 
 a {
@@ -62,8 +86,8 @@ a:hover {
 }
 
 .brand {
-  font-family: var(--font-display);
-  font-weight: 800;
+  font-family: var(--font-brand);
+  font-weight: 700;
   font-size: 1.15rem;
   letter-spacing: -0.02em;
   text-decoration: none;
@@ -98,11 +122,11 @@ main {
 }
 
 .brand-mark {
-  font-family: var(--font-display);
-  font-weight: 800;
+  font-family: var(--font-brand);
+  font-weight: 700;
   font-size: clamp(2.8rem, 9vw, 4.5rem);
   line-height: 0.95;
-  letter-spacing: -0.04em;
+  letter-spacing: -0.02em;
   margin: 0 0 1.25rem;
   color: var(--ink);
 }
@@ -124,8 +148,27 @@ main {
   color: #033d85;
 }
 
+@media (prefers-color-scheme: dark) {
+  .brand .n,
+  .brand-mark .n {
+    color: #9ecbff;
+  }
+  .brand .i,
+  .brand-mark .i {
+    color: #79c0ff;
+  }
+  .brand .t,
+  .brand-mark .t {
+    color: #4493f8;
+  }
+  .brand .pub,
+  .brand-mark .pub {
+    color: #1a56c4;
+  }
+}
+
 .hero h1 {
-  font-family: var(--font-display);
+  font-family: var(--font-brand);
   font-weight: 700;
   font-size: clamp(1.35rem, 3.2vw, 1.75rem);
   line-height: 1.25;
@@ -195,7 +238,7 @@ main {
 .features h2,
 .shots h2,
 .changelog-page h1 {
-  font-family: var(--font-display);
+  font-family: var(--font-brand);
   font-weight: 700;
   letter-spacing: -0.02em;
   margin: 0 0 0.75rem;
@@ -224,7 +267,7 @@ main {
 
 .feature-list strong {
   display: block;
-  font-family: var(--font-display);
+  font-family: var(--font-brand);
   font-size: 1.05rem;
   margin-bottom: 0.35rem;
 }
@@ -254,7 +297,9 @@ main {
   display: block;
   border: 1px solid var(--line);
   border-radius: 0.4rem;
-  background: var(--ink-soft);
+  /* fixed, not a token — this is a load-in placeholder for screenshots of
+     the app's own dark theme, independent of the marketing site's mode */
+  background: #0d1117;
   aspect-ratio: 16 / 10;
   object-fit: cover;
   object-position: top;
@@ -272,6 +317,27 @@ main {
   padding: 2rem clamp(1.25rem, 4vw, 3rem) 3rem;
   border-top: 1px solid var(--line);
   font-size: 0.9rem;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem 1.5rem;
+}
+
+.site-footer p {
+  margin: 0;
+}
+
+.site-footer-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.site-footer-mastodon {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
 }
 
 .muted {
@@ -291,7 +357,7 @@ main {
 }
 
 .release h2 {
-  font-family: var(--font-display);
+  font-family: var(--font-brand);
   font-size: 1.35rem;
   margin: 0 0 0.35rem;
 }

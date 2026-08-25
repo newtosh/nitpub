@@ -1,6 +1,6 @@
-# Install (golden path)
+# Quick install <Badge type="tip" text="Recommended" />
 
-One recommended path: **one-liner → `nitpub install` → `/login` → publish a note.**
+One path: **one-liner → `nitpub install` → `/login` → publish a note.**
 
 Optional gates during install: **Caddy**, **Federation** (cross-post default), and **Analytics** (config scaffold). Deep ops: [deploy/README.md](https://github.com/newtosh/nitpub/blob/main/deploy/README.md).
 
@@ -10,7 +10,7 @@ Optional gates during install: **Caddy**, **Federation** (cross-post default), a
 - A domain pointed at the VPS (A/AAAA)
 - Root (or sudo) on the VPS
 
-You do **not** need Go or Node on the VPS for the golden path.
+You do **not** need Go or Node on the VPS for this path.
 
 ## 1. DNS
 
