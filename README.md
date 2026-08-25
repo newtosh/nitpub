@@ -1,4 +1,7 @@
-# nitpub
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/brand/wordmark-dark.png">
+  <img alt="nitpub" src="assets/brand/wordmark-light.png" width="280">
+</picture>
 
 **ActivityPub blog for notes and long-form articles on your own domain** — one Go binary on a small VPS, without running Mastodon.
 
