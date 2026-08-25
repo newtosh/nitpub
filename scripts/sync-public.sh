@@ -112,6 +112,10 @@ gh pr create --repo "$PUBLIC_REPO_SLUG" --base main --head "$BRANCH" \
   --title "$PR_TITLE" \
   --body-file "$BODY_FILE"
 
-# Pushed and PR'd — the local branch ref is no longer needed (only the
-# worktree remove/nothing-to-sync paths above used to clean it up).
+# Pushed and PR'd — the local branch ref is no longer needed. Must
+# remove the worktree first: a branch checked out in a worktree can't
+# be deleted (this silently no-op'd via the trailing `|| true` on the
+# very first live run, since the EXIT trap only removes the worktree
+# *after* this line already ran and failed).
+git worktree remove --force "$WORKTREE" 2>/dev/null || true
 git branch -D "$BRANCH" 2>/dev/null || true
