@@ -4,6 +4,18 @@ Deep ops (multi-instance, GoatCounter, git-pull rebuilds). Installers: [docs.nit
 
 **GitHub repo:** [`newtosh/nitpub`](https://github.com/newtosh/nitpub)
 
+## Private → public repo sync
+
+`newtosh/nitpub-dev` (private) is the source of truth — internal plans, ops docs, and the VPS auto-deploy workflow live there only. `newtosh/nitpub` (public) is a filtered mirror: install script, `www`/`docs` Cloudflare Pages source, and the only place tags get built into GitHub Releases.
+
+After merging to private `main`:
+
+```bash
+scripts/sync-public.sh
+```
+
+Diffs private `main`'s tracked tree against public `main` (excluding `.cursor/`, `docs/plans/`, `docs/tasks/`, `docs/ideation/`, and the private-only deploy workflow), and opens a PR on the public repo if anything changed. Review and merge that PR before tagging a release — `release.yml` only exists on the public repo now, so a tag only needs to reach public to ship.
+
 ## Configuration (all environments)
 
 nitpub loads the **first config file that exists** (see `internal/config/config.go`). When the systemd service runs as user `nitpub` with `WorkingDirectory=/var/lib/nitpub`, the usual production path is:
