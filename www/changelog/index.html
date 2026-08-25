@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Changelog — nitpub</title>
+    <meta name="description" content="Release notes for nitpub from GitHub Releases." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Syne:wght@700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div class="atmosphere" aria-hidden="true"></div>
+    <header class="site-header">
+      <a class="brand" href="/">nitpub</a>
+      <nav>
+        <a href="https://docs.nitpub.com/">Docs</a>
+        <a href="/changelog/" aria-current="page">Changelog</a>
+        <a href="https://github.com/newtosh/nitpub">GitHub</a>
+      </nav>
+    </header>
+
+    <main class="changelog-page">
+      <h1>Changelog</h1>
+      <p class="lede">Release notes from <a href="https://github.com/newtosh/nitpub/releases">GitHub Releases</a>.</p>
+      <div id="changelog-root" class="changelog-list">
+        <p class="muted">Loading…</p>
+      </div>
+    </main>
+
+    <footer class="site-footer">
+      <p>
+        <a href="/">Home</a>
+        ·
+        <a href="https://docs.nitpub.com/">Docs</a>
+        ·
+        <a href="https://github.com/newtosh/nitpub">GitHub</a>
+      </p>
+    </footer>
+    <script type="module" src="/src/changelog.js"></script>
+  </body>
+</html>

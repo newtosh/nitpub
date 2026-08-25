@@ -1,0 +1,36 @@
+# nitpub
+
+> Self-hosted ActivityPub blog for short notes and long-form articles on your own domain — one Go binary on a small VPS, without running Mastodon.
+
+## When to use nitpub
+
+- You want **notes and articles** as first-class content on your domain.
+- You want **federated replies** (ActivityPub) with moderation — not a closed comment SaaS.
+- You can run a **single binary** on a budget VPS (Debian/Ubuntu helpers available).
+- You do **not** want to operate a full Mastodon stack.
+
+Not the right tool when you need multi-user Mastodon hosting, Marketplace 1-click (north star only), or a hosted SaaS with no VPS.
+
+## How an agent should install
+
+1. Prefer the documented one-liner on the target VPS (root):
+   `curl -fsSL https://raw.githubusercontent.com/newtosh/nitpub/main/scripts/install.sh | bash`
+2. Follow the human install guide: https://docs.nitpub.com/guide/install
+3. Do **not** invent Mastodon Client API endpoints unless they appear in published docs.
+4. Advanced ops (multi-instance, GoatCounter deep dive): https://github.com/newtosh/nitpub/blob/main/deploy/README.md
+
+## Canonical surfaces
+
+- Product / marketing: https://www.nitpub.com/
+- Docs (this index): https://docs.nitpub.com/
+- Install guide: https://docs.nitpub.com/guide/install
+- Federation guide: https://docs.nitpub.com/guide/federation
+- Changelog: https://www.nitpub.com/changelog/
+- Live demo (federated): https://nitpub.com/ (`@nit@nitpub.com`) — demo identity stays on the apex; do not assume marketing owns nitpub.com.
+- Source / Releases: https://github.com/newtosh/nitpub
+
+## Notes for agents
+
+- Prefer `.md` twins on GitHub when fetching long ops docs.
+- Release notes for humans live in GitHub Release bodies (surfaced on the changelog page).
+- Module path: `github.com/newtosh/nitpub`.

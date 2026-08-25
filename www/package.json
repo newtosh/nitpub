@@ -1,0 +1,17 @@
+{
+  "name": "nitpub-www",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "prebuild": "node scripts/fetch-releases.mjs",
+    "dev": "node scripts/fetch-releases.mjs && vite",
+    "build": "node scripts/fetch-releases.mjs --require && vite build",
+    "preview": "vite preview",
+    "fetch-releases": "node scripts/fetch-releases.mjs"
+  },
+  "devDependencies": {
+    "markdown-it": "^14.3.0",
+    "vite": "^6.0.7"
+  }
+}

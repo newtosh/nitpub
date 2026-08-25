@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>nitpub — ActivityPub blog on your domain</title>
+    <meta
+      name="description"
+      content="Self-hosted notes and long-form articles with ActivityPub — one Go binary on a small VPS, without running Mastodon."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Syne:wght@700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div class="atmosphere" aria-hidden="true"></div>
+    <header class="site-header">
+      <a class="brand" href="/">nitpub</a>
+      <nav>
+        <a href="https://docs.nitpub.com/">Docs</a>
+        <a href="/changelog/">Changelog</a>
+        <a href="https://github.com/newtosh/nitpub">GitHub</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <p class="brand-mark">nitpub</p>
+        <h1>Own your notes and articles on the fediverse</h1>
+        <p class="lede">
+          One Go binary on a small VPS. Short notes and long-form posts, federated replies, without running Mastodon.
+        </p>
+        <div class="cta-row">
+          <a class="btn primary" href="https://docs.nitpub.com/guide/install">Install</a>
+          <a class="btn ghost" href="https://nitpub.com/">Live demo</a>
+          <a class="btn ghost" href="https://github.com/newtosh/nitpub">GitHub</a>
+        </div>
+      </section>
+
+      <section class="features" aria-labelledby="features-heading">
+        <h2 id="features-heading">Built for indie operators</h2>
+        <ul class="feature-list">
+          <li>
+            <strong>Notes + articles</strong>
+            <span>Both first-class — not bolted onto a microblog or split across tools.</span>
+          </li>
+          <li>
+            <strong>ActivityPub replies</strong>
+            <span>Federated comments land in moderation, then on the permalink thread.</span>
+          </li>
+          <li>
+            <strong>Budget VPS footprint</strong>
+            <span>Single binary, Caddy-friendly install, Releases instead of build-on-box.</span>
+          </li>
+          <li>
+            <strong>Your domain</strong>
+            <span>Identity at <code>@you@your.domain</code> — not a rented silo.</span>
+          </li>
+        </ul>
+      </section>
+
+      <section class="shots" aria-labelledby="shots-heading">
+        <h2 id="shots-heading">See it live</h2>
+        <p class="section-lede">Screenshots from the public demo at nitpub.com.</p>
+        <div class="shot-grid">
+          <figure>
+            <img src="/screenshots/home.png" alt="nitpub home feed showing notes and articles" width="1200" height="750" />
+            <figcaption>Home — notes and articles together</figcaption>
+          </figure>
+          <figure>
+            <img
+              src="/screenshots/permalink.png"
+              alt="nitpub post permalink with federated replies"
+              width="1200"
+              height="750"
+            />
+            <figcaption>Permalink — moderated replies on the post</figcaption>
+          </figure>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <p>
+        <a href="https://docs.nitpub.com/">Docs</a>
+        ·
+        <a href="/changelog/">Changelog</a>
+        ·
+        <a href="https://nitpub.com/">Demo</a>
+        ·
+        <a href="https://github.com/newtosh/nitpub">GitHub</a>
+      </p>
+      <p class="muted">MIT · @nit@nitpub.com</p>
+    </footer>
+  </body>
+</html>
