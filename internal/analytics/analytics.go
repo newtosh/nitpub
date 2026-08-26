@@ -19,7 +19,7 @@ const (
 	maxResponseBytes = 1 << 20 // 1 MiB — generous for a stats JSON response
 	cacheTTL         = 60 * time.Second
 	fetchLimit       = 10               // top N pages / referrers
-	fetchTimeout     = 15 * time.Second // overall budget for the 3 sequential upstream calls in Stats
+	fetchTimeout     = 15 * time.Second // overall budget for the 4 sequential upstream calls in Stats
 )
 
 // Window is a supported time span for the stats query. GoatCounter's
@@ -61,6 +61,7 @@ type Stats struct {
 	DailyTotals    []DailyPoint `json:"daily_totals"`
 	TopPages       []Breakdown  `json:"top_pages"`
 	TopReferrers   []Breakdown  `json:"top_referrers"`
+	TopLocations   []Breakdown  `json:"top_locations"`
 }
 
 // DailyPoint is one day's pageview count within the queried window, in
@@ -77,6 +78,10 @@ type DailyPoint struct {
 type Breakdown struct {
 	Name  string `json:"name"`
 	Count int    `json:"count"`
+	// Code is GoatCounter's row ID — an ISO 3166-1 alpha-2 country code
+	// for the locations breakdown, unset (and meaningless) elsewhere. Lets
+	// the UI render a flag next to Name without parsing the display name.
+	Code string `json:"code,omitempty"`
 }
 
 type cacheEntry struct {
@@ -186,8 +191,12 @@ func (s *Service) Stats(ctx context.Context, window Window) (Stats, error) {
 	if err != nil {
 		return Stats{}, fmt.Errorf("fetch analytics top referrers: %w", err)
 	}
+	locs, err := s.fetchBreakdown(fetchCtx, "/api/v0/stats/locations", params)
+	if err != nil {
+		return Stats{}, fmt.Errorf("fetch analytics top locations: %w", err)
+	}
 
-	stats := Stats{TotalPageviews: total, DailyTotals: daily, TopPages: pages, TopReferrers: refs}
+	stats := Stats{TotalPageviews: total, DailyTotals: daily, TopPages: pages, TopReferrers: refs, TopLocations: locs}
 
 	s.mu.Lock()
 	s.cache[window] = cacheEntry{stats: stats, cachedAt: s.now()}
@@ -244,6 +253,7 @@ func (s *Service) fetchPages(ctx context.Context, params map[string]string) ([]B
 func (s *Service) fetchBreakdown(ctx context.Context, path string, params map[string]string) ([]Breakdown, error) {
 	var body struct {
 		Stats []struct {
+			ID    string `json:"id"`
 			Name  string `json:"name"`
 			Count int    `json:"count"`
 		} `json:"stats"`
@@ -257,7 +267,7 @@ func (s *Service) fetchBreakdown(ctx context.Context, path string, params map[st
 	}
 	out := make([]Breakdown, 0, len(body.Stats))
 	for _, row := range body.Stats {
-		out = append(out, Breakdown{Name: row.Name, Count: row.Count})
+		out = append(out, Breakdown{Name: row.Name, Count: row.Count, Code: row.ID})
 	}
 	return out, nil
 }
