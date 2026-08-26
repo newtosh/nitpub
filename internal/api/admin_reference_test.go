@@ -180,6 +180,31 @@ func TestReferenceConnectAndResolvePermalink(t *testing.T) {
 	if updated.Federation == nil || updated.Federation.RemoteURL != remoteURL {
 		t.Fatalf("federation = %+v", updated.Federation)
 	}
+
+	// Regression: a post whose remote_url was already set (however it got
+	// there — e.g. resolved before a fix to how that URL is built) must
+	// still be re-resolved, not silently skipped forever.
+	if err := ob.SetFederationRemoteURL(slug, "https://stale.example/wrong"); err != nil {
+		t.Fatal(err)
+	}
+	resolveReq2 := httptest.NewRequest(http.MethodPost, "/api/admin/federation/reference/resolve", nil)
+	resolveReq2.AddCookie(&http.Cookie{Name: sessionCookie, Value: sid})
+	resolveRec2 := httptest.NewRecorder()
+	h.AdminResolveReferencePermalinks(resolveRec2, resolveReq2)
+	var result2 outbox.BackfillResult
+	if err := json.Unmarshal(resolveRec2.Body.Bytes(), &result2); err != nil {
+		t.Fatal(err)
+	}
+	if result2.Sent != 1 {
+		t.Fatalf("re-resolve result = %+v, want a stale remote_url to still be re-sent", result2)
+	}
+	updated2, err := ob.GetPublishedPost(slug)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated2.Federation.RemoteURL != remoteURL {
+		t.Fatalf("re-resolve did not overwrite the stale remote_url: %+v", updated2.Federation)
+	}
 }
 
 // TestNewShareResolvesRemotePermalinkAsync covers the primary path (not
