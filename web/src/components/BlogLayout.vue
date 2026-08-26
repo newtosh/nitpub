@@ -424,7 +424,7 @@ function navActive(item: NavItem) {
   grid-area: brand;
   justify-self: start;
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 0.6rem;
   min-width: 0;
 }

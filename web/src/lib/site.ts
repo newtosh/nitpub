@@ -15,9 +15,11 @@ export type SiteConfig = {
     show_avatars_default?: boolean | null
     moderation_enabled?: boolean | null
     replies_collapsed_default?: boolean | null
+    reference_instance?: string
   }
   content?: {
     external_links_new_tab?: boolean | null
+    expand_notes_in_feed?: boolean
   }
   // Deploy-time config.toml flag (internal/config), not part of the
   // runtime-editable settings above — never wire an admin edit form for it.

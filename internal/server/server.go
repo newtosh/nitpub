@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"io/fs"
 	"log"
@@ -174,6 +175,24 @@ func New(ctx context.Context, cfg config.Config, st *store.Store, static fs.FS) 
 	commentApps := mastodon.NewAppRegistrar(mastodonClient, mastodon.NewAppStore(st))
 	commentHandler := api.NewCommentHandler(ob, commentSessions, commentApps, mastodonClient, cfg.BaseURL)
 
+	// Local dev only (HTTPDev, e.g. NITPUB_HTTP=1): skip the loopback/
+	// private-IP check so a local mock Mastodon instance can be used to
+	// manually exercise the reference-instance connect flow. Never true
+	// for a real deployment — see SetReference's doc comment.
+	referenceClient := mastodonClient
+	if cfg.HTTPDev {
+		// InsecureSkipVerify too: a local mock instance for manual testing
+		// serves a self-signed cert (RegisterApp/ExchangeToken/search all
+		// hardcode https://), which the default transport would otherwise
+		// reject before ever reaching the loopback check this is already
+		// bypassing.
+		referenceClient = mastodon.NewClientWithHTTP(&http.Client{
+			Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}},
+		})
+	}
+	referenceApps := mastodon.NewAppRegistrar(referenceClient, mastodon.NewAppStoreIn(st, store.BucketReferenceApps))
+	apiHandler.SetReference(referenceClient, referenceApps, mastodon.NewReferenceAuthStore(st), cfg.HTTPDev)
+
 	inboxHandler := inbox.NewHandler(verify, ap, ob, deliverOne, string(actorIRI), cfg.BaseURL, modSvc, func() bool {
 		m, err := siteSvc.Load()
 		if err != nil {
@@ -221,6 +240,11 @@ func New(ctx context.Context, cfg config.Config, st *store.Store, static fs.FS) 
 	mux.HandleFunc("POST /api/admin/federation/backfill", apiHandler.AdminBackfillFederation)
 	mux.HandleFunc("POST /api/admin/federation/redeliver-shared", apiHandler.AdminRedeliverShared)
 	mux.HandleFunc("GET /api/admin/federation/deliveries", apiHandler.AdminFederationDeliveries)
+	mux.HandleFunc("GET /api/admin/federation/reference/status", apiHandler.AdminGetReferenceStatus)
+	mux.HandleFunc("POST /api/admin/federation/reference/connect", apiHandler.AdminStartReferenceConnect)
+	mux.HandleFunc("GET /api/admin/federation/reference/callback", apiHandler.AdminReferenceCallback)
+	mux.HandleFunc("POST /api/admin/federation/reference/disconnect", apiHandler.AdminDisconnectReference)
+	mux.HandleFunc("POST /api/admin/federation/reference/resolve", apiHandler.AdminResolveReferencePermalinks)
 	mux.HandleFunc("GET /api/admin/replies", apiHandler.AdminListPendingReplies)
 	mux.HandleFunc("GET /api/admin/replies/reviewed", apiHandler.AdminListReviewedReplies)
 	// {id} (single path segment) is sufficient here — the composite reply key

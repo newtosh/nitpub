@@ -40,6 +40,16 @@ const (
 	bucketCommentSessions    = "comment_sessions"
 	bucketPendingCommentAuth = "pending_comment_auth"
 	bucketCommentApps        = "comment_apps"
+
+	// bucketReferenceApps and bucketReferenceAuth back the admin-optional
+	// "connect a reference Mastodon instance" flow used to resolve a
+	// shared post's remote permalink. Separate buckets from the comment
+	// flow's above: AppStore keys an OAuth app registration by domain
+	// alone, and this flow registers its own app (different redirect_uri,
+	// admin-held token rather than a per-visitor one) against potentially
+	// the same instance domain a real commenter also uses.
+	bucketReferenceApps = "reference_apps"
+	bucketReferenceAuth = "reference_auth"
 )
 
 var requiredBuckets = []string{
@@ -62,6 +72,8 @@ var requiredBuckets = []string{
 	bucketCommentSessions,
 	bucketPendingCommentAuth,
 	bucketCommentApps,
+	bucketReferenceApps,
+	bucketReferenceAuth,
 }
 
 // Store wraps a bbolt database with nitpub's bucket layout.
@@ -148,4 +160,7 @@ const (
 	BucketCommentSessions    = bucketCommentSessions
 	BucketPendingCommentAuth = bucketPendingCommentAuth
 	BucketCommentApps        = bucketCommentApps
+
+	BucketReferenceApps = bucketReferenceApps
+	BucketReferenceAuth = bucketReferenceAuth
 )
