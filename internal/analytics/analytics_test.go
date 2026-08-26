@@ -25,6 +25,8 @@ func fakeGoatCounter(t *testing.T, wantToken string, requestCount *int32) *httpt
 			body = `{"hits": [{"path": "/about", "count": 10}]}`
 		case "/api/v0/stats/toprefs":
 			body = `{"stats": [{"name": "example.com", "count": 5}]}`
+		case "/api/v0/stats/locations":
+			body = `{"stats": [{"id": "US", "name": "United States", "count": 7}]}`
 		default:
 			http.NotFound(w, r)
 			return
@@ -53,6 +55,9 @@ func TestStatsHappyPath(t *testing.T) {
 	}
 	if len(stats.TopReferrers) != 1 || stats.TopReferrers[0].Name != "example.com" {
 		t.Fatalf("TopReferrers = %+v", stats.TopReferrers)
+	}
+	if len(stats.TopLocations) != 1 || stats.TopLocations[0].Name != "United States" || stats.TopLocations[0].Code != "US" {
+		t.Fatalf("TopLocations = %+v", stats.TopLocations)
 	}
 	wantDaily := []DailyPoint{{Day: "2026-08-23", Count: 18}, {Day: "2026-08-24", Count: 24}}
 	if len(stats.DailyTotals) != len(wantDaily) || stats.DailyTotals[0] != wantDaily[0] || stats.DailyTotals[1] != wantDaily[1] {
@@ -117,16 +122,16 @@ func TestStatsCaching(t *testing.T) {
 	if _, err := svc.Stats(t.Context(), Window7d); err != nil {
 		t.Fatal(err)
 	}
-	if got := atomic.LoadInt32(&reqs); got != 3 {
-		t.Fatalf("requests after 2 calls within TTL = %d, want 3 (one round of 3 endpoints)", got)
+	if got := atomic.LoadInt32(&reqs); got != 4 {
+		t.Fatalf("requests after 2 calls within TTL = %d, want 4 (one round of 4 endpoints)", got)
 	}
 
 	time.Sleep(60 * time.Millisecond)
 	if _, err := svc.Stats(t.Context(), Window7d); err != nil {
 		t.Fatal(err)
 	}
-	if got := atomic.LoadInt32(&reqs); got != 6 {
-		t.Fatalf("requests after TTL expiry = %d, want 6", got)
+	if got := atomic.LoadInt32(&reqs); got != 8 {
+		t.Fatalf("requests after TTL expiry = %d, want 8", got)
 	}
 }
 
@@ -172,21 +177,21 @@ func TestStatsCachesPerWindow(t *testing.T) {
 	if _, err := svc.Stats(t.Context(), Window30d); err != nil {
 		t.Fatal(err)
 	}
-	if got := atomic.LoadInt32(&reqs); got != 6 {
-		t.Fatalf("requests for 2 distinct windows = %d, want 6 (3 each, no cross-window cache hit)", got)
+	if got := atomic.LoadInt32(&reqs); got != 8 {
+		t.Fatalf("requests for 2 distinct windows = %d, want 8 (4 each, no cross-window cache hit)", got)
 	}
 	// Re-request the first window — should hit its own cache, not refetch.
 	if _, err := svc.Stats(t.Context(), Window24h); err != nil {
 		t.Fatal(err)
 	}
-	if got := atomic.LoadInt32(&reqs); got != 6 {
-		t.Fatalf("requests after re-fetching cached window = %d, want still 6", got)
+	if got := atomic.LoadInt32(&reqs); got != 8 {
+		t.Fatalf("requests after re-fetching cached window = %d, want still 8", got)
 	}
 }
 
 // TestStatsConcurrentSameWindowSingleFetch proves the Service doc comment's
 // central claim: concurrent cache-miss callers for the same window collapse
-// into one upstream round trip instead of each independently firing 3
+// into one upstream round trip instead of each independently firing 4
 // requests at GoatCounter's 4 req/s API limit.
 func TestStatsConcurrentSameWindowSingleFetch(t *testing.T) {
 	var reqs int32
@@ -208,8 +213,8 @@ func TestStatsConcurrentSameWindowSingleFetch(t *testing.T) {
 	}
 	wg.Wait()
 
-	if got := atomic.LoadInt32(&reqs); got != 3 {
-		t.Fatalf("requests after %d concurrent same-window calls = %d, want 3 (one round of 3 endpoints)", n, got)
+	if got := atomic.LoadInt32(&reqs); got != 4 {
+		t.Fatalf("requests after %d concurrent same-window calls = %d, want 4 (one round of 4 endpoints)", n, got)
 	}
 }
 

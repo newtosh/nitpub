@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 
-type Breakdown = { name: string; count: number }
+type Breakdown = { name: string; count: number; code?: string }
 type DailyPoint = { day: string; count: number }
 type Stats = {
   total_pageviews: number
   daily_totals: DailyPoint[]
   top_pages: Breakdown[]
   top_referrers: Breakdown[]
+  top_locations: Breakdown[]
   goatcounter_url: string
 }
 type Window = '24h' | '7d' | '30d'
@@ -55,6 +56,36 @@ function selectWindow(next: Window) {
 function barWidth(count: number, rows: Breakdown[]): number {
   const max = rows.reduce((m, r) => Math.max(m, r.count), 0)
   return max === 0 ? 0 : Math.round((count / max) * 100)
+}
+
+// Internal/self-check paths that show up as noise in a low-traffic blog's
+// analytics: the admin's own dashboard visits, auth flow, and unmatched
+// (404-ish) requests GoatCounter still counted as a pageview. Labeled, not
+// filtered — the count stays honest, just legible.
+const INTERNAL_PATH_PREFIXES = ['/admin', '/login', '/logout', '/verify-']
+
+function pageLabel(row: Breakdown): { text: string; badge: string | null } {
+  if (INTERNAL_PATH_PREFIXES.some((p) => row.name.startsWith(p))) {
+    return { text: row.name, badge: 'self' }
+  }
+  return { text: row.name, badge: null }
+}
+
+// ISO 3166-1 alpha-2 -> flag emoji via regional indicator symbols (each
+// letter A-Z maps 1:1 onto U+1F1E6-U+1F1FF). No lookup table, no dep.
+function flagEmoji(code?: string): string {
+  if (!code || code.length !== 2) return ''
+  const upper = code.toUpperCase()
+  const points = [...upper].map((c) => 0x1f1e6 + c.charCodeAt(0) - 65)
+  if (points.some((p) => p < 0x1f1e6 || p > 0x1f1ff)) return ''
+  return String.fromCodePoint(...points)
+}
+
+function referrerLabel(row: Breakdown): { text: string; badge: string | null } {
+  if (row.name === '') {
+    return { text: 'Direct / no referrer', badge: 'unknown' }
+  }
+  return { text: row.name, badge: null }
 }
 
 // Sparkline geometry for the total-pageviews trend, built from the same
@@ -139,7 +170,10 @@ onMounted(load)
               <td>
                 <div class="analytics-bar-row">
                   <span class="analytics-bar" :style="{ width: barWidth(row.count, stats.top_pages) + '%' }" />
-                  <span class="analytics-bar-label">{{ row.name }}</span>
+                  <span class="analytics-bar-label">
+                    {{ pageLabel(row).text }}
+                    <span v-if="pageLabel(row).badge" class="analytics-badge">{{ pageLabel(row).badge }}</span>
+                  </span>
                 </div>
               </td>
               <td class="analytics-count">{{ row.count }}</td>
@@ -159,7 +193,30 @@ onMounted(load)
               <td>
                 <div class="analytics-bar-row">
                   <span class="analytics-bar" :style="{ width: barWidth(row.count, stats.top_referrers) + '%' }" />
-                  <span class="analytics-bar-label">{{ row.name }}</span>
+                  <span class="analytics-bar-label">
+                    {{ referrerLabel(row).text }}
+                    <span v-if="referrerLabel(row).badge" class="analytics-badge">{{ referrerLabel(row).badge }}</span>
+                  </span>
+                </div>
+              </td>
+              <td class="analytics-count">{{ row.count }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="analytics-breakdown">
+        <h3>Top locations</h3>
+        <p v-if="stats.top_locations.length === 0" class="status">No data yet.</p>
+        <table v-else class="analytics-table">
+          <tbody>
+            <!-- name is GoatCounter's resolved country name, not raw
+                 visitor input, but rendered as plain text regardless. -->
+            <tr v-for="row in stats.top_locations" :key="row.name">
+              <td>
+                <div class="analytics-bar-row">
+                  <span class="analytics-bar" :style="{ width: barWidth(row.count, stats.top_locations) + '%' }" />
+                  <span class="analytics-bar-label">{{ flagEmoji(row.code) }} {{ row.name || 'Unknown' }}</span>
                 </div>
               </td>
               <td class="analytics-count">{{ row.count }}</td>
@@ -306,6 +363,17 @@ onMounted(load)
 .analytics-bar-label {
   position: relative;
   padding-left: var(--space-2);
+}
+.analytics-badge {
+  margin-left: var(--space-2);
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.7em;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 .analytics-goatcounter-card {
   display: flex;
