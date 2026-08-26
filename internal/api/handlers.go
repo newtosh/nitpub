@@ -8,6 +8,7 @@ import (
 
 	"github.com/newtosh/nitpub/internal/analytics"
 	"github.com/newtosh/nitpub/internal/icons"
+	"github.com/newtosh/nitpub/internal/mastodon"
 	"github.com/newtosh/nitpub/internal/media"
 	"github.com/newtosh/nitpub/internal/moderation"
 	"github.com/newtosh/nitpub/internal/outbox"
@@ -50,6 +51,41 @@ type Handler struct {
 	// see the config.AnalyticsPublicURL field comment. Empty by default:
 	// no link shown.
 	analyticsPublicURL string
+	// mastodonClient, referenceApps, referenceAuth back the admin-optional
+	// reference-instance connect flow (see admin_reference.go). Set via
+	// SetReference after construction, same optional-dependency pattern as
+	// icons/analytics above; nil means the feature is simply unavailable.
+	mastodonClient *mastodon.Client
+	referenceApps  *mastodon.AppRegistrar
+	referenceAuth  *mastodon.ReferenceAuthStore
+	// referenceValidateInstance defaults to mastodon.ValidateInstanceHost
+	// (KTD7 in the comment-auth flow this mirrors). Overridable in tests,
+	// which necessarily point at a loopback-hosted fake instance that the
+	// real check would (correctly) reject.
+	referenceValidateInstance func(string) error
+}
+
+// SetReference wires the admin-optional reference-instance connect flow.
+// A nil call (the default) leaves it unavailable — every handler in
+// admin_reference.go checks for that before doing anything.
+//
+// allowInsecureHosts skips the loopback/private-IP check (KTD7) that
+// otherwise rejects a reference instance — pass true only for a local dev
+// server (config.Config.HTTPDev) pointed at a local mock instance for
+// manual testing; caller (server.go) is responsible for gating this on
+// dev mode, never in production.
+func (h *Handler) SetReference(client *mastodon.Client, apps *mastodon.AppRegistrar, auth *mastodon.ReferenceAuthStore, allowInsecureHosts bool) {
+	h.mastodonClient = client
+	h.referenceApps = apps
+	h.referenceAuth = auth
+	h.referenceValidateInstance = mastodon.ValidateInstanceHost
+	if allowInsecureHosts {
+		h.referenceValidateInstance = func(string) error { return nil }
+	}
+}
+
+func (h *Handler) referenceCallbackURL() string {
+	return h.federationBaseURL + "/api/admin/federation/reference/callback"
 }
 
 func NewHandler(

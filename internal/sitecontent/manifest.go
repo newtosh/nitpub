@@ -23,6 +23,10 @@ type ContentConfig struct {
 	// same-site/relative links always stay in the current tab regardless
 	// of this setting.
 	ExternalLinksNewTab *bool `toml:"external_links_new_tab,omitempty" json:"external_links_new_tab"`
+	// ExpandNotesInFeed, when true, renders shortform notes in full on
+	// the main feed instead of truncating with a "Read more" link.
+	// Articles are never truncated in the feed and are unaffected.
+	ExpandNotesInFeed bool `toml:"expand_notes_in_feed" json:"expand_notes_in_feed"`
 }
 
 // ExternalLinksOpenNewTab reports whether markdown-rendered external links
@@ -89,6 +93,24 @@ type FederationConfig struct {
 	// collapsed on a post page, behind a "Replies (N)" toggle, so a long
 	// thread doesn't push the article below the fold).
 	RepliesCollapsedDefault *bool `toml:"replies_collapsed_default,omitempty" json:"replies_collapsed_default"`
+	// ReferenceInstance is the Mastodon instance domain (no scheme) used to
+	// resolve a shared post's remote permalink — e.g. "mastodon.social".
+	// Every instance assigns its own local ID to a resolved object, so this
+	// only ever reflects one instance's mirror, not a universal fediverse
+	// URL. Empty means "mastodon.social" (see ReferenceInstanceOrDefault).
+	ReferenceInstance string `toml:"reference_instance,omitempty" json:"reference_instance,omitempty"`
+}
+
+// DefaultReferenceInstance is used when an operator hasn't set one.
+const DefaultReferenceInstance = "mastodon.social"
+
+// ReferenceInstanceOrDefault returns the configured resolver instance
+// domain, falling back to DefaultReferenceInstance when unset.
+func (f FederationConfig) ReferenceInstanceOrDefault() string {
+	if f.ReferenceInstance == "" {
+		return DefaultReferenceInstance
+	}
+	return f.ReferenceInstance
 }
 
 // Enabled reports whether new posts should federate by default.

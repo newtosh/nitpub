@@ -10,6 +10,7 @@ export type Post = {
     shared: boolean
     shared_at?: string
     error?: string
+    remote_url?: string
   }
   reply_count?: number
 }

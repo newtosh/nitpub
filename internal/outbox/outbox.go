@@ -48,6 +48,11 @@ type FederationState struct {
 	Shared   bool       `json:"shared"`
 	SharedAt *time.Time `json:"shared_at,omitempty"`
 	Error    string     `json:"error,omitempty"`
+	// RemoteURL is the post's local permalink on the configured reference
+	// Mastodon instance (resolved via that instance's search API at share
+	// time) — one instance's mirror of the post, not a universal fediverse
+	// URL. Empty when resolution hasn't run or failed.
+	RemoteURL string `json:"remote_url,omitempty"`
 }
 
 // Status values for Post.Status. An absent/empty Status means published —
@@ -623,6 +628,41 @@ func (s *Service) UpdatePost(slug string, kind Kind, content string) (*Post, err
 		return nil, err
 	}
 	return &updated, nil
+}
+
+// SetFederationRemoteURL records the post's resolved permalink on the
+// reference instance, leaving the rest of the federation state untouched —
+// unlike SetFederation, which replaces the whole record, this runs later
+// (asynchronously, after delivery) and must not clobber a Shared/SharedAt
+// already written by that earlier call.
+func (s *Service) SetFederationRemoteURL(slug, remoteURL string) error {
+	if slug == "" {
+		return fmt.Errorf("post not found")
+	}
+	key, err := s.lookupPostKey(slug)
+	if err != nil {
+		return err
+	}
+	return s.db.Update(func(tx *bolt.Tx) error {
+		postsBucket := tx.Bucket([]byte(store.BucketPosts))
+		raw := postsBucket.Get(key)
+		if raw == nil {
+			return fmt.Errorf("post not found")
+		}
+		var post Post
+		if err := json.Unmarshal(raw, &post); err != nil {
+			return err
+		}
+		if post.Federation == nil {
+			post.Federation = &FederationState{}
+		}
+		post.Federation.RemoteURL = remoteURL
+		rawPost, err := json.Marshal(post)
+		if err != nil {
+			return err
+		}
+		return postsBucket.Put(key, rawPost)
+	})
 }
 
 // SetFederation updates federation delivery metadata for a post.

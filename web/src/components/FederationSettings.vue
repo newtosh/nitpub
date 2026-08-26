@@ -1,15 +1,20 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import InfoTip from './InfoTip.vue'
 import {
   backfillFederation,
+  disconnectReference,
   fetchFederationDeliveries,
   fetchFederationInfo,
+  fetchReferenceStatus,
   redeliverShared,
   resendAccepts,
+  resolveReferencePermalinks,
+  startReferenceConnect,
   type FederationDelivery,
   type FederationInfo,
+  type ReferenceStatus,
 } from '../lib/federationAdmin'
 import { fetchAdminSite, saveManifest } from '../lib/adminSite'
 import { clearSiteConfigCache } from '../lib/site'
@@ -21,6 +26,9 @@ import {
   repliesCollapsedByDefaultFromConfig,
 } from '../lib/federationDelivery'
 
+const route = useRoute()
+const router = useRouter()
+
 const loading = ref(true)
 const saving = ref(false)
 const error = ref('')
@@ -29,18 +37,58 @@ const crossPostDefault = ref(true)
 const showAvatarsDefault = ref(true)
 const moderationEnabled = ref(true)
 const repliesCollapsedDefault = ref(true)
+const referenceInstance = ref('')
 const federationInfo = ref<FederationInfo | null>(null)
+
+const referenceStatus = ref<ReferenceStatus | null>(null)
+const referenceConnecting = ref(false)
+const referenceDisconnecting = ref(false)
+const referenceMessage = ref('')
+
+async function loadReferenceStatus() {
+  try {
+    referenceStatus.value = await fetchReferenceStatus()
+  } catch {
+    referenceStatus.value = null
+  }
+}
+
+async function connectReference() {
+  referenceConnecting.value = true
+  referenceMessage.value = ''
+  try {
+    const { redirect_url } = await startReferenceConnect()
+    window.location.href = redirect_url
+  } catch (e) {
+    referenceMessage.value = e instanceof Error ? e.message : 'Failed to start connect'
+    referenceConnecting.value = false
+  }
+}
+
+async function doDisconnectReference() {
+  referenceDisconnecting.value = true
+  referenceMessage.value = ''
+  try {
+    await disconnectReference()
+    await loadReferenceStatus()
+  } catch (e) {
+    referenceMessage.value = e instanceof Error ? e.message : 'Failed to disconnect'
+  } finally {
+    referenceDisconnecting.value = false
+  }
+}
 
 const deliveries = ref<FederationDelivery[]>([])
 const deliveriesError = ref('')
 const deliveriesLoading = ref(true)
 
-type DeliveryActionKey = 'resend' | 'backfill' | 'redeliver'
+type DeliveryActionKey = 'resend' | 'backfill' | 'redeliver' | 'resolvePermalinks'
 type DeliveryActionResult = { sent: number; skipped?: number }
 const deliveryActions = reactive<Record<DeliveryActionKey, { loading: boolean; message: string }>>({
   resend: { loading: false, message: '' },
   backfill: { loading: false, message: '' },
   redeliver: { loading: false, message: '' },
+  resolvePermalinks: { loading: false, message: '' },
 })
 
 async function loadDeliveries() {
@@ -82,6 +130,13 @@ const doBackfill = () =>
   runDeliveryAction('backfill', backfillFederation, (r) => `Sent ${r.sent}, skipped ${r.skipped}.`, 'Backfill failed')
 const doRedeliverShared = () =>
   runDeliveryAction('redeliver', redeliverShared, (r) => `Sent ${r.sent}, skipped ${r.skipped}.`, 'Redeliver failed')
+const doResolvePermalinks = () =>
+  runDeliveryAction(
+    'resolvePermalinks',
+    resolveReferencePermalinks,
+    (r) => `Resolved ${r.sent}, skipped ${r.skipped}.`,
+    'Failed to resolve permalinks',
+  )
 
 async function load() {
   loading.value = true
@@ -92,6 +147,7 @@ async function load() {
     showAvatarsDefault.value = avatarsEnabledFromConfig(data.manifest.federation)
     moderationEnabled.value = moderationEnabledFromConfig(data.manifest.federation)
     repliesCollapsedDefault.value = repliesCollapsedByDefaultFromConfig(data.manifest.federation)
+    referenceInstance.value = data.manifest.federation?.reference_instance || ''
     federationInfo.value = info
   } catch {
     error.value = 'Could not load federation settings.'
@@ -111,6 +167,7 @@ async function save() {
       show_avatars_default: showAvatarsDefault.value,
       moderation_enabled: moderationEnabled.value,
       replies_collapsed_default: repliesCollapsedDefault.value,
+      reference_instance: referenceInstance.value.trim(),
     }
     await saveManifest(data.manifest)
     clearSiteConfigCache()
@@ -124,6 +181,18 @@ async function save() {
 
 onMounted(load)
 onMounted(loadDeliveries)
+onMounted(loadReferenceStatus)
+onMounted(() => {
+  const result = route.query.reference
+  if (result === 'connected') {
+    referenceMessage.value = 'Connected.'
+  } else if (result === 'error') {
+    referenceMessage.value = "Couldn't connect — check the instance domain and try again."
+  }
+  if (result) {
+    router.replace({ path: route.path })
+  }
+})
 </script>
 
 <template>
@@ -187,6 +256,31 @@ onMounted(loadDeliveries)
     </div>
     <p v-if="message" class="status ok">{{ message }}</p>
     <p v-if="error" class="status error">{{ error }}</p>
+
+    <h3 class="section-title">
+      Reference instance
+      <InfoTip label="Optional. Resolves each shared post's permalink on one Mastodon instance, so a link to how it looks there can be shown on the post. Every instance assigns its own local ID, so this only ever reflects one instance's mirror, not a universal fediverse URL." />
+    </h3>
+    <label class="field">
+      <span>Instance domain</span>
+      <input v-model="referenceInstance" type="text" placeholder="mastodon.social" />
+    </label>
+    <p v-if="referenceStatus?.connected" class="status ok reference-status">
+      Connected to <strong>{{ referenceStatus.instance }}</strong>.
+      <button type="button" class="btn-link" :disabled="referenceDisconnecting" @click="doDisconnectReference">
+        {{ referenceDisconnecting ? 'Disconnecting…' : 'Disconnect' }}
+      </button>
+      <button type="button" class="btn-link" :disabled="deliveryActions.resolvePermalinks.loading" @click="doResolvePermalinks">
+        {{ deliveryActions.resolvePermalinks.loading ? 'Resolving…' : 'Resolve permalinks for already-shared posts' }}
+      </button>
+      <span v-if="deliveryActions.resolvePermalinks.message">{{ deliveryActions.resolvePermalinks.message }}</span>
+    </p>
+    <p v-else class="reference-status">
+      <button type="button" class="btn" :disabled="referenceConnecting" @click="connectReference">
+        {{ referenceConnecting ? 'Redirecting…' : 'Connect reference instance' }}
+      </button>
+    </p>
+    <p v-if="referenceMessage" class="status">{{ referenceMessage }}</p>
 
     <h3 class="section-title">
       Delivery
@@ -311,6 +405,28 @@ onMounted(loadDeliveries)
 }
 .status.error {
   color: var(--danger);
+}
+.reference-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-sm);
+}
+.btn-link {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
+.btn-link:disabled {
+  color: var(--muted);
+  cursor: default;
+  text-decoration: none;
 }
 .delivery-actions {
   display: flex;

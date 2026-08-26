@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ArrowLeft, ChevronRight } from '@lucide/vue'
+import { ArrowLeft, ChevronRight, Link2, Pencil } from '@lucide/vue'
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import CommentBox from '../components/CommentBox.vue'
+import { useSession } from '../composables/useSession'
 import MarkdownBody from '../components/MarkdownBody.vue'
 import ReplyThread from '../components/ReplyThread.vue'
 import {
@@ -24,6 +25,7 @@ import { fetchSiteConfig } from '../lib/site'
 
 const props = defineProps<{ slug: string }>()
 const route = useRoute()
+const { authed } = useSession()
 
 const post = ref<Post | null>(null)
 const error = ref('')
@@ -113,6 +115,10 @@ watch(() => props.slug, loadAll)
       <ArrowLeft :size="16" :stroke-width="1.75" aria-hidden="true" />
       <span>All posts</span>
     </RouterLink>
+    <RouterLink v-if="authed" :to="`/author/edit/${props.slug}`" class="text-link edit-link">
+      <Pencil :size="16" :stroke-width="1.75" aria-hidden="true" />
+      <span>Edit</span>
+    </RouterLink>
   </p>
 
   <p v-if="loading" class="status">Loading…</p>
@@ -123,6 +129,18 @@ watch(() => props.slug, loadAll)
       <span class="kind">{{ post.kind }}</span>
       <time :datetime="post.created_at">{{ formatDate(post.created_at) }}</time>
       <span v-if="post.updated_at" class="edited">· edited {{ formatDate(post.updated_at) }}</span>
+      <a
+        v-if="post.federation?.remote_url"
+        :href="post.federation.remote_url"
+        target="_blank"
+        rel="noopener noreferrer nofollow"
+        class="permalink-btn"
+        title="View on Mastodon"
+        aria-label="View on Mastodon"
+      >
+        <Link2 :size="14" :stroke-width="1.75" aria-hidden="true" />
+        <span>Mastodon</span>
+      </a>
     </p>
 
     <template v-if="post.kind === 'article'">
@@ -162,7 +180,18 @@ watch(() => props.slug, loadAll)
 
 <style scoped>
 .back {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   margin: 0 0 1.5rem;
+}
+.edit-link {
+  color: var(--muted);
+  font-size: 0.9rem;
+  text-decoration: none;
+}
+.edit-link:hover {
+  color: var(--accent);
 }
 .btn-back {
   padding: 0.35rem 0.85rem 0.35rem 0.65rem;
@@ -194,6 +223,17 @@ watch(() => props.slug, loadAll)
 }
 .edited {
   color: var(--muted);
+}
+.permalink-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-left: auto;
+  color: var(--muted);
+  text-decoration: none;
+}
+.permalink-btn:hover {
+  color: var(--accent);
 }
 h1 {
   font-family: var(--font-serif);

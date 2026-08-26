@@ -13,16 +13,23 @@ import {
   noteTitle,
   postSlug,
 } from '../lib/posts'
+import { getCachedSiteConfig } from '../lib/site'
 
 const props = defineProps<{
   post: Post
 }>()
 
+// Site-wide admin toggle — when on, notes render in full instead of
+// truncating at the usual 280-char preview length.
+const noteMaxLen = computed(() =>
+  getCachedSiteConfig()?.content?.expand_notes_in_feed ? Infinity : 280,
+)
+
 const isNote = computed(() => props.post.kind !== 'article')
 const titledNote = computed(() => isNote.value && !!noteTitle(props.post.content))
-const noteMarkdown = computed(() => notePreviewMarkdown(props.post))
+const noteMarkdown = computed(() => notePreviewMarkdown(props.post, noteMaxLen.value))
 const articleMarkdown = computed(() => articlePreviewMarkdown(props.post))
-const truncated = computed(() => isNote.value && noteIsTruncatedInPreview(props.post))
+const truncated = computed(() => isNote.value && noteIsTruncatedInPreview(props.post, noteMaxLen.value))
 </script>
 
 <template>

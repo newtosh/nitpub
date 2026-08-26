@@ -174,9 +174,16 @@ var ErrStatusNotFound = fmt.Errorf("status not found on remote instance")
 // simply unresolvable yet (KTD3's scope fallback).
 var ErrScopeRejected = fmt.Errorf("instance rejected the requested scope")
 
-// ResolveStatus calls GET /api/v2/search?resolve=true to find postURL's
-// status ID on domain.
-func (c *Client) ResolveStatus(ctx context.Context, domain, token, postURL string) (string, error) {
+type resolvedStatus struct {
+	ID  string
+	URL string
+}
+
+// searchResolveStatus calls GET /api/v2/search?resolve=true and returns the
+// entry whose URL/URI exactly matches postURL. Shared by ResolveStatus
+// (needs the local status ID, to reply against) and ResolvePermalink
+// (needs the instance's own rendered URL for that status).
+func (c *Client) searchResolveStatus(ctx context.Context, domain, token, postURL string) (resolvedStatus, error) {
 	q := url.Values{
 		"q":       {postURL},
 		"type":    {"statuses"},
@@ -184,20 +191,20 @@ func (c *Client) ResolveStatus(ctx context.Context, domain, token, postURL strin
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://"+domain+"/api/v2/search?"+q.Encode(), nil)
 	if err != nil {
-		return "", err
+		return resolvedStatus{}, err
 	}
 	req.Header.Set("Authorization", "Bearer "+token)
 
 	resp, err := c.do(req)
 	if err != nil {
-		return "", fmt.Errorf("resolve status on %s: %w", domain, err)
+		return resolvedStatus{}, fmt.Errorf("resolve status on %s: %w", domain, err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
-		return "", ErrScopeRejected
+		return resolvedStatus{}, ErrScopeRejected
 	}
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("resolve status on %s: status %d: %s", domain, resp.StatusCode, readErrorBody(resp))
+		return resolvedStatus{}, fmt.Errorf("resolve status on %s: status %d: %s", domain, resp.StatusCode, readErrorBody(resp))
 	}
 
 	var out struct {
@@ -208,17 +215,38 @@ func (c *Client) ResolveStatus(ctx context.Context, domain, token, postURL strin
 		} `json:"statuses"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
-		return "", fmt.Errorf("decode search response from %s: %w", domain, err)
+		return resolvedStatus{}, fmt.Errorf("decode search response from %s: %w", domain, err)
 	}
 	for _, s := range out.Statuses {
 		if s.URL == postURL || s.URI == postURL {
-			return s.ID, nil
+			return resolvedStatus{ID: s.ID, URL: s.URL}, nil
 		}
 	}
 	// No exact URL/URI match: fail rather than guess. Attaching to the
 	// first search hit would thread the visitor's reply onto an unrelated
 	// status on their own instance, publicly and irreversibly.
-	return "", ErrStatusNotFound
+	return resolvedStatus{}, ErrStatusNotFound
+}
+
+// ResolveStatus calls GET /api/v2/search?resolve=true to find postURL's
+// status ID on domain.
+func (c *Client) ResolveStatus(ctx context.Context, domain, token, postURL string) (string, error) {
+	s, err := c.searchResolveStatus(ctx, domain, token, postURL)
+	if err != nil {
+		return "", err
+	}
+	return s.ID, nil
+}
+
+// ResolvePermalink is like ResolveStatus but returns the instance's own
+// rendered URL for the status (e.g. "https://mastodon.social/@user/123")
+// instead of the bare local ID.
+func (c *Client) ResolvePermalink(ctx context.Context, domain, token, postURL string) (string, error) {
+	s, err := c.searchResolveStatus(ctx, domain, token, postURL)
+	if err != nil {
+		return "", err
+	}
+	return s.URL, nil
 }
 
 // PostReply calls POST /api/v1/statuses with in_reply_to_id set.

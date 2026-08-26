@@ -62,3 +62,26 @@ export const backfillFederation = () =>
   postFederationAction<BackfillResult>('backfill', 'Failed to backfill federation')
 export const redeliverShared = () =>
   postFederationAction<BackfillResult>('redeliver-shared', 'Failed to redeliver shared posts')
+
+export type ReferenceStatus = {
+  connected: boolean
+  instance?: string
+}
+
+export async function fetchReferenceStatus(): Promise<ReferenceStatus> {
+  const res = await fetch('/api/admin/federation/reference/status', { credentials: 'include' })
+  return unwrap(res, 'Failed to load reference instance status')
+}
+
+export const startReferenceConnect = () =>
+  postFederationAction<{ redirect_url: string }>('reference/connect', 'Failed to start connect')
+export const resolveReferencePermalinks = () =>
+  postFederationAction<BackfillResult>('reference/resolve', 'Failed to resolve permalinks')
+
+export async function disconnectReference(): Promise<void> {
+  const res = await fetch('/api/admin/federation/reference/disconnect', {
+    method: 'POST',
+    credentials: 'include',
+  })
+  if (!res.ok) throw new Error('Failed to disconnect')
+}

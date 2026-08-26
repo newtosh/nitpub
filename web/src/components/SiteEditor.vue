@@ -370,6 +370,10 @@ onMounted(async () => {
           <input v-model="contentExternalLinksNewTab" type="checkbox" />
           <span>Open external links in a new tab</span>
         </label>
+        <label class="field checkbox">
+          <input v-model="data.manifest.content.expand_notes_in_feed" type="checkbox" />
+          <span>Always show shortform posts in full on the main feed</span>
+        </label>
         <h3 class="section-title">
           Home
           <InfoTip label="How many recent posts appear on the home page. Use 0 to show all posts." />
