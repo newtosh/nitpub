@@ -265,22 +265,35 @@ onMounted(() => {
       <span>Instance domain</span>
       <input v-model="referenceInstance" type="text" placeholder="mastodon.social" />
     </label>
-    <p v-if="referenceStatus?.connected" class="status ok reference-status">
-      Connected to <strong>{{ referenceStatus.instance }}</strong>.
-      <button type="button" class="btn-link" :disabled="referenceDisconnecting" @click="doDisconnectReference">
-        {{ referenceDisconnecting ? 'Disconnecting…' : 'Disconnect' }}
-      </button>
-      <button type="button" class="btn-link" :disabled="deliveryActions.resolvePermalinks.loading" @click="doResolvePermalinks">
-        {{ deliveryActions.resolvePermalinks.loading ? 'Resolving…' : 'Resolve permalinks for already-shared posts' }}
-      </button>
-      <span v-if="deliveryActions.resolvePermalinks.message">{{ deliveryActions.resolvePermalinks.message }}</span>
-    </p>
-    <p v-else class="reference-status">
-      <button type="button" class="btn" :disabled="referenceConnecting" @click="connectReference">
-        {{ referenceConnecting ? 'Redirecting…' : 'Connect reference instance' }}
-      </button>
-    </p>
+
     <p v-if="referenceMessage" class="status">{{ referenceMessage }}</p>
+
+    <template v-if="referenceStatus?.connected">
+      <p class="follow-policy">
+        <span class="policy-badge">Connected</span>
+        {{ referenceStatus.instance }}
+      </p>
+      <div class="delivery-actions">
+        <div class="delivery-action">
+          <button type="button" class="btn" :disabled="deliveryActions.resolvePermalinks.loading" @click="doResolvePermalinks">
+            {{ deliveryActions.resolvePermalinks.loading ? 'Resolving…' : 'Resolve permalinks for already-shared posts' }}
+          </button>
+          <span v-if="deliveryActions.resolvePermalinks.message" class="delivery-action-result">{{ deliveryActions.resolvePermalinks.message }}</span>
+        </div>
+        <div class="delivery-action">
+          <button type="button" class="btn btn-ghost" :disabled="referenceDisconnecting" @click="doDisconnectReference">
+            {{ referenceDisconnecting ? 'Disconnecting…' : 'Disconnect' }}
+          </button>
+        </div>
+      </div>
+    </template>
+    <div v-else class="delivery-actions">
+      <div class="delivery-action">
+        <button type="button" class="btn" :disabled="referenceConnecting" @click="connectReference">
+          {{ referenceConnecting ? 'Redirecting…' : 'Connect reference instance' }}
+        </button>
+      </div>
+    </div>
 
     <h3 class="section-title">
       Delivery
@@ -405,28 +418,6 @@ onMounted(() => {
 }
 .status.error {
   color: var(--danger);
-}
-.reference-status {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin: 0 0 var(--space-2);
-  font-size: var(--text-sm);
-}
-.btn-link {
-  padding: 0;
-  border: none;
-  background: none;
-  color: var(--accent);
-  font: inherit;
-  font-size: inherit;
-  cursor: pointer;
-  text-decoration: underline;
-}
-.btn-link:disabled {
-  color: var(--muted);
-  cursor: default;
-  text-decoration: none;
 }
 .delivery-actions {
   display: flex;
