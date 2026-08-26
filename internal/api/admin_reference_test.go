@@ -15,10 +15,12 @@ import (
 )
 
 // newFakeReferenceInstance stands in for a reference Mastodon instance:
-// app registration, token exchange, and search-resolve. resolveURL is
-// what the fake instance claims as its own mirror of whatever gets
-// searched for.
-func newFakeReferenceInstance(t *testing.T, resolveURL string) *httptest.Server {
+// app registration, token exchange, and search-resolve. Its search handler
+// mirrors real Mastodon behavior (verified against a live instance): the
+// returned status's "url" just echoes back the queried origin URL, it does
+// NOT return a mastodon.social-hosted page — ResolvePermalink instead
+// builds that from the account handle + local id this fake also returns.
+func newFakeReferenceInstance(t *testing.T) *httptest.Server {
 	t.Helper()
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/v1/apps", func(w http.ResponseWriter, r *http.Request) {
@@ -30,7 +32,12 @@ func newFakeReferenceInstance(t *testing.T, resolveURL string) *httptest.Server 
 	mux.HandleFunc("/api/v2/search", func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query().Get("q")
 		_ = json.NewEncoder(w).Encode(map[string]any{
-			"statuses": []map[string]string{{"id": "999", "url": resolveURL, "uri": q}},
+			"statuses": []map[string]any{{
+				"id":      "999",
+				"url":     q,
+				"uri":     q,
+				"account": map[string]string{"acct": "mockuser"},
+			}},
 		})
 	})
 	srv := httptest.NewTLSServer(mux)
@@ -103,8 +110,8 @@ func runReferenceConnect(t *testing.T, h *Handler, sid string) *httptest.Respons
 }
 
 func TestReferenceConnectAndResolvePermalink(t *testing.T) {
-	remoteURL := "https://ref.example/@user/999"
-	inst := newFakeReferenceInstance(t, remoteURL)
+	inst := newFakeReferenceInstance(t)
+	remoteURL := "https://" + domainOf(t, inst) + "/@mockuser/999"
 	client := mastodon.NewClientWithHTTP(inst.Client())
 	h, ob, sid := testReferenceHandler(t, client)
 
@@ -180,8 +187,8 @@ func TestReferenceConnectAndResolvePermalink(t *testing.T) {
 // create-and-federate flow should pick up its remote permalink on its own,
 // no admin action needed, once a reference instance is connected.
 func TestNewShareResolvesRemotePermalinkAsync(t *testing.T) {
-	remoteURL := "https://ref.example/@user/999"
-	inst := newFakeReferenceInstance(t, remoteURL)
+	inst := newFakeReferenceInstance(t)
+	remoteURL := "https://" + domainOf(t, inst) + "/@mockuser/999"
 	client := mastodon.NewClientWithHTTP(inst.Client())
 	h, ob, sid := testReferenceHandler(t, client)
 
@@ -223,7 +230,7 @@ func TestNewShareResolvesRemotePermalinkAsync(t *testing.T) {
 }
 
 func TestReferenceConnectRequiresAuth(t *testing.T) {
-	inst := newFakeReferenceInstance(t, "https://ref.example/@user/1")
+	inst := newFakeReferenceInstance(t)
 	client := mastodon.NewClientWithHTTP(inst.Client())
 	h, _, _ := testReferenceHandler(t, client)
 
