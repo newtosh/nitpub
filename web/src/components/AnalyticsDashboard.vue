@@ -64,11 +64,8 @@ function barWidth(count: number, rows: Breakdown[]): number {
 // filtered — the count stays honest, just legible.
 const INTERNAL_PATH_PREFIXES = ['/admin', '/login', '/logout', '/verify-']
 
-function pageLabel(row: Breakdown): { text: string; badge: string | null } {
-  if (INTERNAL_PATH_PREFIXES.some((p) => row.name.startsWith(p))) {
-    return { text: row.name, badge: 'self' }
-  }
-  return { text: row.name, badge: null }
+function pageBadge(row: Breakdown): string | null {
+  return INTERNAL_PATH_PREFIXES.some((p) => row.name.startsWith(p)) ? 'self' : null
 }
 
 // ISO 3166-1 alpha-2 -> flag emoji via regional indicator symbols (each
@@ -79,13 +76,6 @@ function flagEmoji(code?: string): string {
   const points = [...upper].map((c) => 0x1f1e6 + c.charCodeAt(0) - 65)
   if (points.some((p) => p < 0x1f1e6 || p > 0x1f1ff)) return ''
   return String.fromCodePoint(...points)
-}
-
-function referrerLabel(row: Breakdown): { text: string; badge: string | null } {
-  if (row.name === '') {
-    return { text: 'Direct / no referrer', badge: 'unknown' }
-  }
-  return { text: row.name, badge: null }
 }
 
 // Sparkline geometry for the total-pageviews trend, built from the same
@@ -171,8 +161,8 @@ onMounted(load)
                 <div class="analytics-bar-row">
                   <span class="analytics-bar" :style="{ width: barWidth(row.count, stats.top_pages) + '%' }" />
                   <span class="analytics-bar-label">
-                    {{ pageLabel(row).text }}
-                    <span v-if="pageLabel(row).badge" class="analytics-badge">{{ pageLabel(row).badge }}</span>
+                    {{ row.name }}
+                    <span v-if="pageBadge(row)" class="analytics-badge">{{ pageBadge(row) }}</span>
                   </span>
                 </div>
               </td>
@@ -194,8 +184,8 @@ onMounted(load)
                 <div class="analytics-bar-row">
                   <span class="analytics-bar" :style="{ width: barWidth(row.count, stats.top_referrers) + '%' }" />
                   <span class="analytics-bar-label">
-                    {{ referrerLabel(row).text }}
-                    <span v-if="referrerLabel(row).badge" class="analytics-badge">{{ referrerLabel(row).badge }}</span>
+                    {{ row.name || 'Direct / no referrer' }}
+                    <span v-if="row.name === ''" class="analytics-badge">unknown</span>
                   </span>
                 </div>
               </td>
