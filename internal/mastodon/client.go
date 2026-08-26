@@ -175,8 +175,8 @@ var ErrStatusNotFound = fmt.Errorf("status not found on remote instance")
 var ErrScopeRejected = fmt.Errorf("instance rejected the requested scope")
 
 type resolvedStatus struct {
-	ID  string
-	URL string
+	ID   string
+	Acct string
 }
 
 // searchResolveStatus calls GET /api/v2/search?resolve=true and returns the
@@ -209,9 +209,12 @@ func (c *Client) searchResolveStatus(ctx context.Context, domain, token, postURL
 
 	var out struct {
 		Statuses []struct {
-			ID  string `json:"id"`
-			URL string `json:"url"`
-			URI string `json:"uri"`
+			ID      string `json:"id"`
+			URL     string `json:"url"`
+			URI     string `json:"uri"`
+			Account struct {
+				Acct string `json:"acct"`
+			} `json:"account"`
 		} `json:"statuses"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
@@ -219,7 +222,7 @@ func (c *Client) searchResolveStatus(ctx context.Context, domain, token, postURL
 	}
 	for _, s := range out.Statuses {
 		if s.URL == postURL || s.URI == postURL {
-			return resolvedStatus{ID: s.ID, URL: s.URL}, nil
+			return resolvedStatus{ID: s.ID, Acct: s.Account.Acct}, nil
 		}
 	}
 	// No exact URL/URI match: fail rather than guess. Attaching to the
@@ -239,14 +242,22 @@ func (c *Client) ResolveStatus(ctx context.Context, domain, token, postURL strin
 }
 
 // ResolvePermalink is like ResolveStatus but returns the instance's own
-// rendered URL for the status (e.g. "https://mastodon.social/@user/123")
-// instead of the bare local ID.
+// rendered page for the status (e.g. "https://mastodon.social/@user/123")
+// instead of the bare local ID. Built manually from the account handle and
+// local ID — Mastodon's own status.url field for a remote status just
+// echoes back the origin's declared AS2 object URL (verified against a
+// live instance: nitpub sets that URL to its own /p/ permalink, and the
+// search response's "url" field came back identical to it), not a
+// mastodon.social-hosted page.
 func (c *Client) ResolvePermalink(ctx context.Context, domain, token, postURL string) (string, error) {
 	s, err := c.searchResolveStatus(ctx, domain, token, postURL)
 	if err != nil {
 		return "", err
 	}
-	return s.URL, nil
+	if s.Acct == "" {
+		return "", fmt.Errorf("resolve permalink on %s: status missing account handle", domain)
+	}
+	return "https://" + domain + "/@" + s.Acct + "/" + s.ID, nil
 }
 
 // PostReply calls POST /api/v1/statuses with in_reply_to_id set.
