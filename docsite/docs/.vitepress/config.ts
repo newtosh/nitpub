@@ -14,6 +14,7 @@ export default defineConfig({
     nav: [
       { text: 'Home', link: '/' },
       { text: 'Install', link: '/guide/install' },
+      { text: 'Changelog', link: '/changelog' },
       { text: 'Product site', link: 'https://www.nitpub.com/' },
     ],
     sidebar: [
@@ -27,6 +28,10 @@ export default defineConfig({
           { text: 'Federation', link: '/guide/federation' },
           { text: 'Analytics', link: '/guide/analytics' },
         ],
+      },
+      {
+        text: 'Reference',
+        items: [{ text: 'Changelog', link: '/changelog' }],
       },
     ],
     socialLinks: [{ icon: 'github', link: 'https://github.com/newtosh/nitpub' }],

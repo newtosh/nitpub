@@ -11,14 +11,13 @@ nitpub’s marketing and docs sites deploy from the **public** repo [`newtosh/ni
 
 ### www build notes
 
-- `npm run build` runs `scripts/fetch-releases.mjs --require` (GitHub Releases → `data/releases.json`).
-- Set Pages secret **`GITHUB_TOKEN`** (classic or fine-grained read on public repo) so CF shared egress does not rate-limit the API.
-- Changelog is a static MPA path: `/changelog/` → `changelog/index.html`.
+- `/changelog` is a `_redirects` rule (`www/public/_redirects`) to `docs.nitpub.com/changelog` — the changelog itself lives on the docs site now, not here.
 
 ### docs build notes
 
 - VitePress app under `docsite/` (`vitepress build docs`).
 - `llms.txt` ships at `https://docs.nitpub.com/llms.txt` via `docsite/docs/public/llms.txt`.
+- `/changelog` is a VitePress data loader (`docsite/docs/changelog.data.ts`) that fetches GitHub Releases at build time — same approach www's old script used, now owned by docs instead of duplicated. Unauthenticated (60 req/hr GitHub limit is plenty for a build-time call); add a `GITHUB_TOKEN` Pages secret only if builds start hitting it.
 
 ## DNS
 
