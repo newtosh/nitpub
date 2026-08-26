@@ -206,10 +206,13 @@ func (h *Handler) AdminDisconnectReference(w http.ResponseWriter, r *http.Reques
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// AdminResolveReferencePermalinks resolves remote permalinks for every
-// already-shared post that doesn't have one yet — covers posts shared
-// before a reference instance was connected (new shares resolve on their
-// own; see FederationPublisher.Complete).
+// AdminResolveReferencePermalinks (re-)resolves remote permalinks for every
+// already-shared post — covers posts shared before a reference instance
+// was connected (new shares resolve on their own; see
+// FederationPublisher.Complete) and, since it doesn't skip posts that
+// already have a remote_url, posts whose stored value predates a fix to
+// how that URL gets built (an admin action, not something worth a
+// separate "force" flag for what's normally a handful of posts).
 func (h *Handler) AdminResolveReferencePermalinks(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -227,7 +230,7 @@ func (h *Handler) AdminResolveReferencePermalinks(w http.ResponseWriter, r *http
 	publisher := h.federationPublisher()
 	result := outbox.BackfillResult{}
 	for _, post := range posts {
-		if post.Federation == nil || !post.Federation.Shared || post.Federation.RemoteURL != "" {
+		if post.Federation == nil || !post.Federation.Shared {
 			continue
 		}
 		ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
