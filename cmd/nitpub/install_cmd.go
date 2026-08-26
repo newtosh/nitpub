@@ -479,7 +479,7 @@ func writeConfigStep(o installOpts) error {
 
 func runCaddyGate(o installOpts) error {
 	if !install.IsDebianFamily() {
-		return fmt.Errorf("Caddy auto-provision supports Debian/Ubuntu only in v1")
+		return fmt.Errorf("caddy auto-provision supports Debian/Ubuntu only in v1")
 	}
 	if _, err := exec.LookPath("caddy"); err != nil {
 		cliui.Progress("installing caddy via apt")

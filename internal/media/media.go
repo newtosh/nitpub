@@ -91,15 +91,16 @@ func (s *Service) Open(name string) (*os.File, string, error) {
 	}
 	ext := filepath.Ext(name)
 	var contentType string
-	if ext == ".svg" {
+	switch ext {
+	case ".svg":
 		contentType = "image/svg+xml"
-	} else if ext == ".ico" {
+	case ".ico":
 		// mime.TypeByExtension relies on the OS's mime.types file, which
 		// often has no entry for .ico at all — fall back to
 		// application/octet-stream in that case, which browsers won't
 		// reliably treat as a favicon.
 		contentType = "image/x-icon"
-	} else {
+	default:
 		contentType = mime.TypeByExtension(ext)
 	}
 	if contentType == "" {
