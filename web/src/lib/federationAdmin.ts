@@ -76,10 +76,7 @@ export async function fetchReferenceStatus(): Promise<ReferenceStatus> {
 export const startReferenceConnect = () =>
   postFederationAction<{ redirect_url: string }>('reference/connect', 'Failed to start connect')
 export const resolveReferencePermalinks = () =>
-  postFederationAction<{ resolved: number; skipped: number }>(
-    'reference/resolve',
-    'Failed to resolve permalinks',
-  )
+  postFederationAction<BackfillResult>('reference/resolve', 'Failed to resolve permalinks')
 
 export async function disconnectReference(): Promise<void> {
   const res = await fetch('/api/admin/federation/reference/disconnect', {

@@ -130,20 +130,13 @@ const doBackfill = () =>
   runDeliveryAction('backfill', backfillFederation, (r) => `Sent ${r.sent}, skipped ${r.skipped}.`, 'Backfill failed')
 const doRedeliverShared = () =>
   runDeliveryAction('redeliver', redeliverShared, (r) => `Sent ${r.sent}, skipped ${r.skipped}.`, 'Redeliver failed')
-
-async function doResolvePermalinks() {
-  const action = deliveryActions.resolvePermalinks
-  action.loading = true
-  action.message = ''
-  try {
-    const r = await resolveReferencePermalinks()
-    action.message = `Resolved ${r.resolved}, skipped ${r.skipped}.`
-  } catch (e) {
-    action.message = e instanceof Error ? e.message : 'Failed to resolve permalinks'
-  } finally {
-    action.loading = false
-  }
-}
+const doResolvePermalinks = () =>
+  runDeliveryAction(
+    'resolvePermalinks',
+    resolveReferencePermalinks,
+    (r) => `Resolved ${r.sent}, skipped ${r.skipped}.`,
+    'Failed to resolve permalinks',
+  )
 
 async function load() {
   loading.value = true

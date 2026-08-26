@@ -206,11 +206,6 @@ func (h *Handler) AdminDisconnectReference(w http.ResponseWriter, r *http.Reques
 	w.WriteHeader(http.StatusNoContent)
 }
 
-type resolvePermalinksResult struct {
-	Resolved int `json:"resolved"`
-	Skipped  int `json:"skipped"`
-}
-
 // AdminResolveReferencePermalinks resolves remote permalinks for every
 // already-shared post that doesn't have one yet — covers posts shared
 // before a reference instance was connected (new shares resolve on their
@@ -230,7 +225,7 @@ func (h *Handler) AdminResolveReferencePermalinks(w http.ResponseWriter, r *http
 		return
 	}
 	publisher := h.federationPublisher()
-	result := resolvePermalinksResult{}
+	result := outbox.BackfillResult{}
 	for _, post := range posts {
 		if post.Federation == nil || !post.Federation.Shared || post.Federation.RemoteURL != "" {
 			continue
@@ -243,7 +238,7 @@ func (h *Handler) AdminResolveReferencePermalinks(w http.ResponseWriter, r *http
 			result.Skipped++
 			continue
 		}
-		result.Resolved++
+		result.Sent++
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(result)

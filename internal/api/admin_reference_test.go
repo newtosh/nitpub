@@ -158,11 +158,11 @@ func TestReferenceConnectAndResolvePermalink(t *testing.T) {
 	if resolveRec.Code != http.StatusOK {
 		t.Fatalf("resolve status = %d body = %s", resolveRec.Code, resolveRec.Body.String())
 	}
-	var result resolvePermalinksResult
+	var result outbox.BackfillResult
 	if err := json.Unmarshal(resolveRec.Body.Bytes(), &result); err != nil {
 		t.Fatal(err)
 	}
-	if result.Resolved != 1 || result.Skipped != 0 {
+	if result.Sent != 1 || result.Skipped != 0 {
 		t.Fatalf("result = %+v", result)
 	}
 
