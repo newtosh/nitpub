@@ -166,7 +166,7 @@ func New(ctx context.Context, cfg config.Config, st *store.Store, static fs.FS) 
 		return nil, err
 	}
 	apiHandler.SetIcons(iconsSvc)
-	apiHandler.SetTelemetry(st, cfg.TelemetryRegisterURL, cfg.TelemetryIngestURL)
+	apiHandler.SetTelemetry(st, cfg.TelemetryRegisterURL)
 
 	// Constructed only when enabled — analyticsEnabled (above) still flows
 	// to the frontend either way via ServeSite, but h.analytics itself

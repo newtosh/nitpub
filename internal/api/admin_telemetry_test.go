@@ -25,7 +25,7 @@ func TestAdminGetTelemetryStatusRequiresAuth(t *testing.T) {
 	defer st.Close()
 
 	h := newTelemetryTestHandler(t, st, testAuthUnconfigured(t, st))
-	h.SetTelemetry(st, "http://register.test", "http://ingest.test")
+	h.SetTelemetry(st, "http://register.test")
 
 	req := httptest.NewRequest(http.MethodGet, "/api/admin/telemetry", nil)
 	rec := httptest.NewRecorder()
@@ -55,7 +55,7 @@ func TestAdminGetTelemetryStatusUnavailable(t *testing.T) {
 	}
 }
 
-func TestAdminGetTelemetryStatusNotConfigured(t *testing.T) {
+func TestAdminGetTelemetryStatusDefaultsDisabled(t *testing.T) {
 	st, err := store.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -64,7 +64,7 @@ func TestAdminGetTelemetryStatusNotConfigured(t *testing.T) {
 
 	auth, sid := testAuth(t, st)
 	h := newTelemetryTestHandler(t, st, auth)
-	h.SetTelemetry(st, "", "") // wired but no endpoints configured
+	h.SetTelemetry(st, "http://register.test")
 
 	req := httptest.NewRequest(http.MethodGet, "/api/admin/telemetry", nil)
 	req.AddCookie(&http.Cookie{Name: sessionCookie, Value: sid})
@@ -76,9 +76,6 @@ func TestAdminGetTelemetryStatusNotConfigured(t *testing.T) {
 	var resp adminTelemetryStatusResponse
 	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
 		t.Fatal(err)
-	}
-	if resp.Available {
-		t.Fatal("expected available=false with no endpoints configured")
 	}
 	if resp.Enabled {
 		t.Fatal("expected enabled=false by default")
@@ -102,7 +99,7 @@ func TestAdminSetTelemetryEnabledRegistersOnFirstEnable(t *testing.T) {
 
 	auth, sid := testAuth(t, st)
 	h := newTelemetryTestHandler(t, st, auth)
-	h.SetTelemetry(st, registerSrv.URL, "http://ingest.test")
+	h.SetTelemetry(st, registerSrv.URL)
 
 	body, _ := json.Marshal(adminTelemetrySetRequest{Enabled: true})
 	req := httptest.NewRequest(http.MethodPost, "/api/admin/telemetry", bytes.NewReader(body))
@@ -151,7 +148,7 @@ func TestAdminSetTelemetryEnabledRegistrationFailureLeavesDisabled(t *testing.T)
 
 	auth, sid := testAuth(t, st)
 	h := newTelemetryTestHandler(t, st, auth)
-	h.SetTelemetry(st, registerSrv.URL, "http://ingest.test")
+	h.SetTelemetry(st, registerSrv.URL)
 
 	body, _ := json.Marshal(adminTelemetrySetRequest{Enabled: true})
 	req := httptest.NewRequest(http.MethodPost, "/api/admin/telemetry", bytes.NewReader(body))
@@ -183,7 +180,7 @@ func TestAdminSetTelemetryEnabledFalseStopsFutureExports(t *testing.T) {
 
 	auth, sid := testAuth(t, st)
 	h := newTelemetryTestHandler(t, st, auth)
-	h.SetTelemetry(st, "http://register.test", "http://ingest.test")
+	h.SetTelemetry(st, "http://register.test")
 
 	body, _ := json.Marshal(adminTelemetrySetRequest{Enabled: false})
 	req := httptest.NewRequest(http.MethodPost, "/api/admin/telemetry", bytes.NewReader(body))

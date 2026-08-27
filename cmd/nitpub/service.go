@@ -1,10 +1,15 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"strings"
+	"time"
+
+	"github.com/newtosh/nitpub/internal/config"
+	"github.com/newtosh/nitpub/internal/store"
 )
 
 // nitpubServiceName is the systemd unit this process's --offline admin
@@ -50,4 +55,53 @@ func runSystemctl(args ...string) error {
 	cmd.Stdout = nil
 	cmd.Stderr = nil
 	return cmd.Run()
+}
+
+// openOfflineStore opens the bbolt store, stopping nitpub.service first
+// (and restarting it via the returned cleanup) when offline is true. The
+// bbolt database is exclusively locked while the service runs, so this is
+// the shared shape every subcommand that mutates it (admin, telemetry)
+// needs — cmdName only changes the locked-database hint's example command.
+func openOfflineStore(offline bool, cmdName string) (*store.Store, config.Config, func(), error) {
+	cleanup := func() {}
+	if offline {
+		stopped, err := stopNitpubService()
+		if err != nil {
+			return nil, config.Config{}, cleanup, err
+		}
+		if stopped {
+			cleanup = func() { _ = startNitpubService() }
+		}
+	}
+
+	cfg, err := config.Load()
+	if err != nil {
+		cleanup()
+		return nil, config.Config{}, cleanup, err
+	}
+	if err := config.EnsureDataDirWritable(cfg); err != nil {
+		cleanup()
+		return nil, config.Config{}, cleanup, err
+	}
+
+	timeout := 3 * time.Second
+	if offline {
+		timeout = 0
+	}
+	st, err := store.OpenWithTimeout(cfg.DataDir, timeout)
+	if err != nil {
+		cleanup()
+		if errors.Is(err, store.ErrDatabaseLocked) {
+			svcName := nitpubServiceName()
+			return nil, config.Config{}, cleanup, fmt.Errorf("%w\n\nhint: nitpub %s … --offline   (as root, stops the service)\n      systemctl stop %s && sudo -u nitpub nitpub %s …", err, cmdName, svcName, cmdName)
+		}
+		return nil, config.Config{}, cleanup, err
+	}
+
+	prev := cleanup
+	cleanup = func() {
+		_ = st.Close()
+		prev()
+	}
+	return st, cfg, cleanup, nil
 }

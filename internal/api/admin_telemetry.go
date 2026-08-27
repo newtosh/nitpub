@@ -8,13 +8,10 @@ import (
 )
 
 type adminTelemetryStatusResponse struct {
-	Enabled   bool `json:"enabled"`
-	Available bool `json:"available"`
+	Enabled bool `json:"enabled"`
 }
 
-// AdminGetTelemetryStatus reports whether telemetry is enabled, and
-// whether it's even possible to enable (i.e. the operator has configured
-// telemetry_register_url / telemetry_ingest_url).
+// AdminGetTelemetryStatus reports whether telemetry is enabled.
 func (h *Handler) AdminGetTelemetryStatus(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -33,10 +30,7 @@ func (h *Handler) AdminGetTelemetryStatus(w http.ResponseWriter, r *http.Request
 		http.Error(w, "telemetry status unavailable", http.StatusInternalServerError)
 		return
 	}
-	resp := adminTelemetryStatusResponse{
-		Enabled:   enabled,
-		Available: h.telemetryRegisterURL != "" && h.telemetryIngestURL != "",
-	}
+	resp := adminTelemetryStatusResponse{Enabled: enabled}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(resp)
 }
@@ -96,8 +90,5 @@ func (h *Handler) AdminSetTelemetryEnabled(w http.ResponseWriter, r *http.Reques
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(adminTelemetryStatusResponse{
-		Enabled:   req.Enabled,
-		Available: h.telemetryRegisterURL != "" && h.telemetryIngestURL != "",
-	})
+	_ = json.NewEncoder(w).Encode(adminTelemetryStatusResponse(req))
 }

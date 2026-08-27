@@ -1,15 +1,12 @@
 package main
 
 import (
-	"errors"
 	"fmt"
-	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/newtosh/nitpub/internal/auth"
 	"github.com/newtosh/nitpub/internal/config"
-	"github.com/newtosh/nitpub/internal/store"
 )
 
 type adminEnv struct {
@@ -48,59 +45,19 @@ running it holds an exclusive lock, so commands fail fast unless you pass --offl
 }
 
 func openAdminEnv(offline bool) (*adminEnv, error) {
-	env := &adminEnv{cleanup: func() {}}
-	if offline {
-		stopped, err := stopNitpubService()
-		if err != nil {
-			return nil, err
-		}
-		if stopped {
-			env.cleanup = func() {
-				_ = startNitpubService()
-			}
-		}
-	}
-
-	cfg, err := config.Load()
+	st, cfg, cleanup, err := openOfflineStore(offline, "admin")
 	if err != nil {
-		env.cleanup()
-		return nil, err
-	}
-	if err := config.EnsureDataDirWritable(cfg); err != nil {
-		env.cleanup()
-		return nil, err
-	}
-
-	timeout := 3 * time.Second
-	if offline {
-		timeout = 0
-	}
-	st, err := store.OpenWithTimeout(cfg.DataDir, timeout)
-	if err != nil {
-		env.cleanup()
-		if errors.Is(err, store.ErrDatabaseLocked) {
-			svcName := nitpubServiceName()
-			return nil, fmt.Errorf("%w\n\nhint: nitpub admin … --offline   (as root, stops the service)\n      systemctl stop %s && sudo -u nitpub nitpub admin …", err, svcName)
-		}
 		return nil, err
 	}
 
 	svc, err := auth.NewService(st, cfg.Domain, "nitpub")
 	if err != nil {
-		_ = st.Close()
-		env.cleanup()
+		cleanup()
 		return nil, err
 	}
 	svc.SetRPOrigin(cfg.BaseURL)
 
-	prev := env.cleanup
-	env.cleanup = func() {
-		_ = st.Close()
-		prev()
-	}
-	env.svc = svc
-	env.cfg = cfg
-	return env, nil
+	return &adminEnv{svc: svc, cfg: cfg, cleanup: cleanup}, nil
 }
 
 func withAdminEnv(offline *bool, fn func(*adminEnv) error) func(*cobra.Command, []string) error {

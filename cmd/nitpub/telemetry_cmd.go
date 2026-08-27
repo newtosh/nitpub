@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -14,9 +13,10 @@ import (
 )
 
 // telemetryEnv mirrors adminEnv's offline-store-access pattern (see
-// openAdminEnv in admin_cmd.go): the bbolt database is exclusively
-// locked while nitpub.service runs, so mutating telemetry state needs
-// the same --offline stop/restart dance admin commands use.
+// openAdminEnv in admin_cmd.go, both built on openOfflineStore in
+// service.go): the bbolt database is exclusively locked while
+// nitpub.service runs, so mutating telemetry state needs the same
+// --offline stop/restart dance admin commands use.
 type telemetryEnv struct {
 	st      *store.Store
 	cfg     config.Config
@@ -24,45 +24,11 @@ type telemetryEnv struct {
 }
 
 func openTelemetryEnv(offline bool) (*telemetryEnv, error) {
-	env := &telemetryEnv{cleanup: func() {}}
-	if offline {
-		stopped, err := stopNitpubService()
-		if err != nil {
-			return nil, err
-		}
-		if stopped {
-			env.cleanup = func() { _ = startNitpubService() }
-		}
-	}
-
-	cfg, err := config.Load()
+	st, cfg, cleanup, err := openOfflineStore(offline, "telemetry")
 	if err != nil {
-		env.cleanup()
 		return nil, err
 	}
-
-	timeout := 3 * time.Second
-	if offline {
-		timeout = 0
-	}
-	st, err := store.OpenWithTimeout(cfg.DataDir, timeout)
-	if err != nil {
-		env.cleanup()
-		if errors.Is(err, store.ErrDatabaseLocked) {
-			svcName := nitpubServiceName()
-			return nil, fmt.Errorf("%w\n\nhint: nitpub telemetry … --offline   (as root, stops the service)\n      systemctl stop %s && sudo -u nitpub nitpub telemetry …", err, svcName)
-		}
-		return nil, err
-	}
-
-	prev := env.cleanup
-	env.cleanup = func() {
-		_ = st.Close()
-		prev()
-	}
-	env.st = st
-	env.cfg = cfg
-	return env, nil
+	return &telemetryEnv{st: st, cfg: cfg, cleanup: cleanup}, nil
 }
 
 func withTelemetryEnv(offline *bool, fn func(*telemetryEnv) error) func(*cobra.Command, []string) error {
