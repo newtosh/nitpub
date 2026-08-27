@@ -8,6 +8,7 @@ import InfoTip from '../components/InfoTip.vue'
 import SecurityCard from '../components/SecurityCard.vue'
 import SiteEditor from '../components/SiteEditor.vue'
 import ThemePicker from '../components/ThemePicker.vue'
+import TelemetryToggle from '../components/TelemetryToggle.vue'
 import VersionCheck from '../components/VersionCheck.vue'
 import { useSession } from '../composables/useSession'
 import { fetchSiteConfig, getCachedSiteConfig } from '../lib/site'
@@ -112,7 +113,10 @@ onMounted(async () => {
       <SiteEditor v-else-if="activeSection === 'site'" />
       <FederationSettings v-else-if="activeSection === 'federation'" />
       <SecurityCard v-else-if="activeSection === 'security'" />
-      <VersionCheck v-else-if="activeSection === 'system'" />
+      <template v-else-if="activeSection === 'system'">
+        <VersionCheck />
+        <TelemetryToggle />
+      </template>
       <AnalyticsDashboard v-else-if="activeSection === 'analytics'" />
     </article>
   </template>
