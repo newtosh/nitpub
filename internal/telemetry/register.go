@@ -4,9 +4,10 @@
 // version and a few non-PII fields. See docs/plans/2026-08-27-001-feat-
 // version-telemetry-plan.md.
 //
-// Every endpoint this package talks to is operator-supplied
-// configuration (config.TelemetryRegisterURL / TelemetryIngestURL) — it
-// never hardcodes a real receiver.
+// The endpoints this package talks to (config.TelemetryRegisterURL /
+// TelemetryIngestURL) default to nitpub's project-run collector but are
+// always operator-overridable — see the field comments in
+// internal/config for why a public default doesn't compromise privacy.
 package telemetry
 
 import (

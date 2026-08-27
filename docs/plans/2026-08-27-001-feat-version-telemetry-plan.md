@@ -36,7 +36,7 @@ No mechanism exists today to see which versions of nitpub are deployed in the fi
 
 **R3.** Before any telemetry is accepted, the instance registers itself against the receiving endpoint and receives a bearer credential; all pings after that point carry it.
 
-**R4.** The receiving endpoint URL(s) are runtime configuration, never hardcoded or committed to source.
+**R4 (amended post-implementation).** The receiving endpoint URL(s) are runtime configuration, always operator-overridable — but now default to nitpub's project-run collector (`telemetry.newto.sh`, live on qtycat lab-stack infra), baked into source. Originally written as "never hardcoded" under the assumption the endpoint had to stay secret; that assumption broke once other operators' instances needed to know where to report without being told out-of-band (see conversation: sharing the URL to every self-hoster defeats "keep it private"). Resolution: the URL is public like any project's default telemetry endpoint — the registration + bearer-token gate protects the backend, not secrecy of the address. What must never be hardcoded or exposed is the backend's actual private infra identity (qtycat.com hostnames, VPS IP, Tailscale names) — `telemetry.newto.sh` is a neutral front the maintainer's already-public project identity (`github.com/newtosh`), decoupled from home-infra branding.
 
 **R5.** Telemetry shipping uses the OpenTelemetry Go SDK (OTLP/HTTP metrics exporter), not a hand-rolled JSON client.
 
@@ -130,9 +130,9 @@ Registration is a plain HTTP call (not OTel) since it's a one-shot credential ex
 - `internal/config/config.go` — add `TelemetryRegisterURL`, `TelemetryIngestURL` (mirroring `AnalyticsBaseURL` at `internal/config/config.go:35`); TOML keys in the `fileConfig` struct
 - `internal/config/config_test.go` — parse test for the new keys
 
-**Approach:**
-1. Both fields optional/empty by default — telemetry cannot function without them regardless of the opt-in flag, so treat empty as "opt-in unavailable" downstream (U4, U5 read this).
-2. No default value pointing at any real host — never hardcode a URL (R4).
+**Approach (amended, see R4):**
+1. Both fields default to nitpub's project-run collector (`defaultTelemetryRegisterURL`/`defaultTelemetryIngestURL` constants in `internal/config/config.go`) when unset in TOML; operators can override via config or `NITPUB_TELEMETRY_REGISTER_URL`/`NITPUB_TELEMETRY_INGEST_URL` env vars.
+2. Populated-by-default does not change opt-in behavior — `TelemetryEnabled` (KTD5) still defaults false, so telemetry sends nothing until explicitly turned on.
 
 **Patterns to follow:** `AnalyticsBaseURL` field + comment block at `internal/config/config.go:35`.
 
@@ -312,13 +312,13 @@ Start(ctx, cfg, store):
 - `go build ./...` succeeds with the new OTel dependencies added.
 - `go test ./internal/config/... ./internal/store/... ./internal/telemetry/... ./internal/server/... ./cmd/nitpub/... ./internal/install/... ./internal/api/...` passes.
 - Manual smoke: fresh install with `--with-telemetry` against a local `httptest.Server` standing in for both registration and ingest endpoints — confirm one registration call, one startup export with correct version/arch, and that toggling off via the admin endpoint stops further exports.
-- No literal private hostname, org name, or receiving-endpoint URL appears anywhere in the diff (R4) — grep the changeset before commit.
+- No literal private/home-infra hostname (qtycat.com, Tailscale names, VPS IP) appears anywhere in the diff (R4, amended) — grep the changeset before commit. `telemetry.newto.sh` as the public default is expected and fine.
 
 ## Definition of Done
 
 - All six implementation units merged with passing tests.
-- Telemetry is fully inert (no network calls, no state written) on a default install with no opt-in and no configured URLs.
-- `docs/` (or wherever config keys are documented) explains `TelemetryRegisterURL`/`TelemetryIngestURL` as operator-supplied values, with no example pointing at a real service.
+- Telemetry is fully inert (no network calls, no state written) on a default install with no explicit opt-in, regardless of the default URLs being populated.
+- `docs/` (or wherever config keys are documented) explains `TelemetryRegisterURL`/`TelemetryIngestURL`, their defaults, and how to override them for a self-hosted receiver.
 
 ## Dependencies / Prerequisites
 

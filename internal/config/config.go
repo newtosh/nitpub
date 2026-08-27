@@ -16,6 +16,20 @@ const (
 	defaultDevSecret  = "dev-secret-change-me"
 	defaultConfigName = "config.toml"
 	legacyConfigName  = "nitpub.toml"
+
+	// defaultTelemetryRegisterURL and defaultTelemetryIngestURL point at
+	// nitpub's project-run telemetry collector — a neutral hostname
+	// under the maintainer's public project domain (newto.sh, already
+	// the module's public identity via github.com/newtosh/nitpub), not
+	// their home-infra domain. Being public doesn't weaken privacy: the
+	// registration + bearer-token gate is what protects the backend,
+	// not secrecy of the URL. Telemetry still defaults OFF (R2) — a
+	// populated default here only makes opt-in available without an
+	// operator having to source a URL out-of-band; it sends nothing
+	// until explicitly enabled. Operators may still override both to
+	// point at their own receiver.
+	defaultTelemetryRegisterURL = "https://telemetry.newto.sh/register"
+	defaultTelemetryIngestURL   = "https://telemetry.newto.sh/v1/metrics"
 )
 
 // Config holds runtime settings for a single-actor nitpub instance.
@@ -69,11 +83,12 @@ type Config struct {
 	// for the security tradeoff of setting this.
 	SessionCookieDomain string
 
-	// TelemetryRegisterURL and TelemetryIngestURL are operator-supplied
-	// endpoints for opt-in version telemetry (see internal/telemetry).
-	// Deploy-time only, like the Analytics fields above — empty by
-	// default, so telemetry has nowhere to send data until an operator
-	// configures their own receiver. Never hardcode a real value here.
+	// TelemetryRegisterURL and TelemetryIngestURL are the opt-in version
+	// telemetry endpoints (see internal/telemetry). Deploy-time only,
+	// like the Analytics fields above. Default to nitpub's project-run
+	// collector (defaultTelemetryRegisterURL/IngestURL); an operator can
+	// override both to point at their own receiver, or leave them as-is
+	// — either way telemetry stays off (R2) until explicitly enabled.
 	TelemetryRegisterURL string
 	TelemetryIngestURL   string
 }
@@ -226,6 +241,22 @@ func mergeEnv(fc fileConfig) (Config, error) {
 		systemUser = v
 	}
 
+	telemetryRegisterURL := fc.TelemetryRegisterURL
+	if telemetryRegisterURL == "" {
+		telemetryRegisterURL = defaultTelemetryRegisterURL
+	}
+	if v := os.Getenv("NITPUB_TELEMETRY_REGISTER_URL"); v != "" {
+		telemetryRegisterURL = v
+	}
+
+	telemetryIngestURL := fc.TelemetryIngestURL
+	if telemetryIngestURL == "" {
+		telemetryIngestURL = defaultTelemetryIngestURL
+	}
+	if v := os.Getenv("NITPUB_TELEMETRY_INGEST_URL"); v != "" {
+		telemetryIngestURL = v
+	}
+
 	scheme := "https"
 	if httpDev {
 		scheme = "http"
@@ -256,8 +287,8 @@ func mergeEnv(fc fileConfig) (Config, error) {
 		AnalyticsVhost:       fc.AnalyticsVhost,
 		AnalyticsPublicURL:   fc.AnalyticsPublicURL,
 		SessionCookieDomain:  fc.SessionCookieDomain,
-		TelemetryRegisterURL: fc.TelemetryRegisterURL,
-		TelemetryIngestURL:   fc.TelemetryIngestURL,
+		TelemetryRegisterURL: telemetryRegisterURL,
+		TelemetryIngestURL:   telemetryIngestURL,
 	}, nil
 }
 
