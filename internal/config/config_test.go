@@ -199,6 +199,46 @@ func TestLoadSessionCookieDomainDefaultsEmpty(t *testing.T) {
 	}
 }
 
+func TestLoadTelemetryDefaultsToProjectCollector(t *testing.T) {
+	t.Setenv("NITPUB_CONFIG", "")
+	t.Setenv("NITPUB_DOMAIN", "example.test")
+	t.Setenv("NITPUB_HTTP", "1")
+	t.Setenv("NITPUB_SECRET", "")
+	t.Setenv("NITPUB_TELEMETRY_REGISTER_URL", "")
+	t.Setenv("NITPUB_TELEMETRY_INGEST_URL", "")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.TelemetryRegisterURL != defaultTelemetryRegisterURL {
+		t.Fatalf("telemetry register url = %q, want %q", cfg.TelemetryRegisterURL, defaultTelemetryRegisterURL)
+	}
+	if cfg.TelemetryIngestURL != defaultTelemetryIngestURL {
+		t.Fatalf("telemetry ingest url = %q, want %q", cfg.TelemetryIngestURL, defaultTelemetryIngestURL)
+	}
+}
+
+func TestLoadTelemetryEnvOverridesDefault(t *testing.T) {
+	t.Setenv("NITPUB_CONFIG", "")
+	t.Setenv("NITPUB_DOMAIN", "example.test")
+	t.Setenv("NITPUB_HTTP", "1")
+	t.Setenv("NITPUB_SECRET", "")
+	t.Setenv("NITPUB_TELEMETRY_REGISTER_URL", "https://own-receiver.test/register")
+	t.Setenv("NITPUB_TELEMETRY_INGEST_URL", "https://own-receiver.test/v1/metrics")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.TelemetryRegisterURL != "https://own-receiver.test/register" {
+		t.Fatalf("telemetry register url = %q, want operator override", cfg.TelemetryRegisterURL)
+	}
+	if cfg.TelemetryIngestURL != "https://own-receiver.test/v1/metrics" {
+		t.Fatalf("telemetry ingest url = %q, want operator override", cfg.TelemetryIngestURL)
+	}
+}
+
 func TestLoadRequiresSecretInProduction(t *testing.T) {
 	t.Setenv("NITPUB_CONFIG", "")
 	t.Setenv("NITPUB_DOMAIN", "example.test")

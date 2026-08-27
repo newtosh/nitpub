@@ -19,5 +19,6 @@ func newRootCmd() *cobra.Command {
 	root.AddCommand(newUpdateCmd())
 	root.AddCommand(newInstallCmd())
 	root.AddCommand(newDoctorCmd())
+	root.AddCommand(newTelemetryCmd())
 	return root
 }

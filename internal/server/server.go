@@ -28,15 +28,17 @@ import (
 	"github.com/newtosh/nitpub/internal/search"
 	"github.com/newtosh/nitpub/internal/sitecontent"
 	"github.com/newtosh/nitpub/internal/store"
+	"github.com/newtosh/nitpub/internal/telemetry"
 )
 
 // Server wires nitpub HTTP routes.
 type Server struct {
-	cfg    config.Config
-	mux    *http.ServeMux
-	actor  *actor.Service
-	outbox *outbox.Service
-	cancel context.CancelFunc
+	cfg           config.Config
+	mux           *http.ServeMux
+	actor         *actor.Service
+	outbox        *outbox.Service
+	cancel        context.CancelFunc
+	telemetryStop func()
 }
 
 // New constructs the application server.
@@ -80,6 +82,12 @@ func New(ctx context.Context, cfg config.Config, st *store.Store, static fs.FS) 
 	}
 
 	federation.StartKeyFetchWorker(workerCtx, ap, cl)
+
+	telemetryStop, err := telemetry.Start(workerCtx, cfg, st)
+	if err != nil {
+		log.Printf("telemetry: startup failed, continuing without it: %v", err)
+		telemetryStop = func() {}
+	}
 
 	mediaSvc, err := media.New(cfg.DataDir)
 	if err != nil {
@@ -158,6 +166,7 @@ func New(ctx context.Context, cfg config.Config, st *store.Store, static fs.FS) 
 		return nil, err
 	}
 	apiHandler.SetIcons(iconsSvc)
+	apiHandler.SetTelemetry(st, cfg.TelemetryRegisterURL)
 
 	// Constructed only when enabled — analyticsEnabled (above) still flows
 	// to the frontend either way via ServeSite, but h.analytics itself
@@ -231,6 +240,8 @@ func New(ctx context.Context, cfg config.Config, st *store.Store, static fs.FS) 
 	mux.HandleFunc("GET /api/site/pages/{path...}", apiHandler.ServeSitePage)
 	mux.HandleFunc("GET /api/search", apiHandler.ServeSearch)
 	mux.HandleFunc("GET /api/admin/version", apiHandler.AdminCheckVersion)
+	mux.HandleFunc("GET /api/admin/telemetry", apiHandler.AdminGetTelemetryStatus)
+	mux.HandleFunc("POST /api/admin/telemetry", apiHandler.AdminSetTelemetryEnabled)
 	mux.HandleFunc("GET /api/admin/site", apiHandler.AdminGetSite)
 	mux.HandleFunc("PUT /api/admin/site/manifest", apiHandler.AdminPutManifest)
 	mux.HandleFunc("PUT /api/admin/site/files/{relPath...}", apiHandler.AdminPutSiteFile)
@@ -306,13 +317,16 @@ func New(ctx context.Context, cfg config.Config, st *store.Store, static fs.FS) 
 		mux.Handle("/", spaHandler(static, authSvc.ThemeID, cfg.BaseURL, string(actorIRI), cfg.Title, analyticsPublicURL))
 	}
 
-	return &Server{cfg: cfg, mux: mux, actor: actSvc, outbox: ob, cancel: cancel}, nil
+	return &Server{cfg: cfg, mux: mux, actor: actSvc, outbox: ob, cancel: cancel, telemetryStop: telemetryStop}, nil
 }
 
 func (s *Server) Handler() http.Handler { return withSecurityHeaders(s.mux) }
 
 // Close stops background workers.
 func (s *Server) Close() {
+	if s.telemetryStop != nil {
+		s.telemetryStop()
+	}
 	if s.cancel != nil {
 		s.cancel()
 	}
