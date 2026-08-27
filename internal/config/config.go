@@ -68,23 +68,33 @@ type Config struct {
 	// behavior); see internal/auth.Service's cookieDomain field comment
 	// for the security tradeoff of setting this.
 	SessionCookieDomain string
+
+	// TelemetryRegisterURL and TelemetryIngestURL are operator-supplied
+	// endpoints for opt-in version telemetry (see internal/telemetry).
+	// Deploy-time only, like the Analytics fields above — empty by
+	// default, so telemetry has nowhere to send data until an operator
+	// configures their own receiver. Never hardcode a real value here.
+	TelemetryRegisterURL string
+	TelemetryIngestURL   string
 }
 
 type fileConfig struct {
-	Domain              string `toml:"domain"`
-	Title               string `toml:"title"`
-	Port                int    `toml:"port"`
-	DataDir             string `toml:"data_dir"`
-	Actor               string `toml:"actor"`
-	Secret              string `toml:"secret"`
-	HTTP                bool   `toml:"http"`
-	SystemUser          string `toml:"system_user"`
-	AnalyticsEnabled    bool   `toml:"analytics_enabled"`
-	AnalyticsAPIToken   string `toml:"analytics_api_token"`
-	AnalyticsBaseURL    string `toml:"analytics_base_url"`
-	AnalyticsVhost      string `toml:"analytics_vhost"`
-	AnalyticsPublicURL  string `toml:"analytics_public_url"`
-	SessionCookieDomain string `toml:"session_cookie_domain"`
+	Domain               string `toml:"domain"`
+	Title                string `toml:"title"`
+	Port                 int    `toml:"port"`
+	DataDir              string `toml:"data_dir"`
+	Actor                string `toml:"actor"`
+	Secret               string `toml:"secret"`
+	HTTP                 bool   `toml:"http"`
+	SystemUser           string `toml:"system_user"`
+	AnalyticsEnabled     bool   `toml:"analytics_enabled"`
+	AnalyticsAPIToken    string `toml:"analytics_api_token"`
+	AnalyticsBaseURL     string `toml:"analytics_base_url"`
+	AnalyticsVhost       string `toml:"analytics_vhost"`
+	AnalyticsPublicURL   string `toml:"analytics_public_url"`
+	SessionCookieDomain  string `toml:"session_cookie_domain"`
+	TelemetryRegisterURL string `toml:"telemetry_register_url"`
+	TelemetryIngestURL   string `toml:"telemetry_ingest_url"`
 }
 
 // Load reads configuration from the first discovered config file, then applies
@@ -231,21 +241,23 @@ func mergeEnv(fc fileConfig) (Config, error) {
 	}
 
 	return Config{
-		Domain:              domain,
-		Title:               title,
-		Port:                port,
-		DataDir:             dataDir,
-		Actor:               actor,
-		Secret:              secret,
-		BaseURL:             baseURL,
-		HTTPDev:             httpDev,
-		SystemUser:          systemUser,
-		AnalyticsEnabled:    fc.AnalyticsEnabled,
-		AnalyticsAPIToken:   fc.AnalyticsAPIToken,
-		AnalyticsBaseURL:    fc.AnalyticsBaseURL,
-		AnalyticsVhost:      fc.AnalyticsVhost,
-		AnalyticsPublicURL:  fc.AnalyticsPublicURL,
-		SessionCookieDomain: fc.SessionCookieDomain,
+		Domain:               domain,
+		Title:                title,
+		Port:                 port,
+		DataDir:              dataDir,
+		Actor:                actor,
+		Secret:               secret,
+		BaseURL:              baseURL,
+		HTTPDev:              httpDev,
+		SystemUser:           systemUser,
+		AnalyticsEnabled:     fc.AnalyticsEnabled,
+		AnalyticsAPIToken:    fc.AnalyticsAPIToken,
+		AnalyticsBaseURL:     fc.AnalyticsBaseURL,
+		AnalyticsVhost:       fc.AnalyticsVhost,
+		AnalyticsPublicURL:   fc.AnalyticsPublicURL,
+		SessionCookieDomain:  fc.SessionCookieDomain,
+		TelemetryRegisterURL: fc.TelemetryRegisterURL,
+		TelemetryIngestURL:   fc.TelemetryIngestURL,
 	}, nil
 }
 
