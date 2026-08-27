@@ -28,15 +28,17 @@ import (
 	"github.com/newtosh/nitpub/internal/search"
 	"github.com/newtosh/nitpub/internal/sitecontent"
 	"github.com/newtosh/nitpub/internal/store"
+	"github.com/newtosh/nitpub/internal/telemetry"
 )
 
 // Server wires nitpub HTTP routes.
 type Server struct {
-	cfg    config.Config
-	mux    *http.ServeMux
-	actor  *actor.Service
-	outbox *outbox.Service
-	cancel context.CancelFunc
+	cfg           config.Config
+	mux           *http.ServeMux
+	actor         *actor.Service
+	outbox        *outbox.Service
+	cancel        context.CancelFunc
+	telemetryStop func()
 }
 
 // New constructs the application server.
@@ -80,6 +82,12 @@ func New(ctx context.Context, cfg config.Config, st *store.Store, static fs.FS) 
 	}
 
 	federation.StartKeyFetchWorker(workerCtx, ap, cl)
+
+	telemetryStop, err := telemetry.Start(workerCtx, cfg, st)
+	if err != nil {
+		log.Printf("telemetry: startup failed, continuing without it: %v", err)
+		telemetryStop = func() {}
+	}
 
 	mediaSvc, err := media.New(cfg.DataDir)
 	if err != nil {
@@ -306,13 +314,16 @@ func New(ctx context.Context, cfg config.Config, st *store.Store, static fs.FS) 
 		mux.Handle("/", spaHandler(static, authSvc.ThemeID, cfg.BaseURL, string(actorIRI), cfg.Title, analyticsPublicURL))
 	}
 
-	return &Server{cfg: cfg, mux: mux, actor: actSvc, outbox: ob, cancel: cancel}, nil
+	return &Server{cfg: cfg, mux: mux, actor: actSvc, outbox: ob, cancel: cancel, telemetryStop: telemetryStop}, nil
 }
 
 func (s *Server) Handler() http.Handler { return withSecurityHeaders(s.mux) }
 
 // Close stops background workers.
 func (s *Server) Close() {
+	if s.telemetryStop != nil {
+		s.telemetryStop()
+	}
 	if s.cancel != nil {
 		s.cancel()
 	}
