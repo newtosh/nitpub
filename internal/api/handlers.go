@@ -14,6 +14,7 @@ import (
 	"github.com/newtosh/nitpub/internal/outbox"
 	"github.com/newtosh/nitpub/internal/search"
 	"github.com/newtosh/nitpub/internal/sitecontent"
+	"github.com/newtosh/nitpub/internal/store"
 )
 
 // Handler serves the minimal post API for the PWA.
@@ -63,6 +64,24 @@ type Handler struct {
 	// which necessarily point at a loopback-hosted fake instance that the
 	// real check would (correctly) reject.
 	referenceValidateInstance func(string) error
+	// telemetryStore, telemetryRegisterURL, telemetryIngestURL back the
+	// admin telemetry toggle (admin_telemetry.go). Set via SetTelemetry
+	// after construction, same optional-dependency pattern as
+	// icons/analytics above; telemetryStore nil means the feature is
+	// unavailable (404), matching AdminGetAnalytics's nil-guard.
+	telemetryStore       telemetryStore
+	telemetryRegisterURL string
+	telemetryIngestURL   string
+}
+
+// telemetryStore is the subset of *store.Store the telemetry admin
+// handlers need — same shape as telemetry.IdentityStore plus the
+// mutators, kept local to avoid an import cycle back into internal/store.
+type telemetryStore interface {
+	TelemetryEnabled() (bool, error)
+	SetTelemetryEnabled(bool) error
+	GetTelemetryIdentity() (store.TelemetryIdentity, bool, error)
+	SetTelemetryIdentity(instanceID, token string) error
 }
 
 // SetReference wires the admin-optional reference-instance connect flow.
@@ -144,6 +163,16 @@ func (h *Handler) SetAnalytics(svc *analytics.Service) {
 // after construction (see the Handler.analyticsPublicURL field comment).
 func (h *Handler) SetAnalyticsPublicURL(url string) {
 	h.analyticsPublicURL = url
+}
+
+// SetTelemetry wires the telemetry admin toggle in after construction
+// (see the Handler.telemetryStore field comment). registerURL/ingestURL
+// come straight from config.Config — empty means telemetry is
+// unavailable regardless of st.
+func (h *Handler) SetTelemetry(st telemetryStore, registerURL, ingestURL string) {
+	h.telemetryStore = st
+	h.telemetryRegisterURL = registerURL
+	h.telemetryIngestURL = ingestURL
 }
 
 type createPostRequest struct {

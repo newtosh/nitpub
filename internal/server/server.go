@@ -166,6 +166,7 @@ func New(ctx context.Context, cfg config.Config, st *store.Store, static fs.FS) 
 		return nil, err
 	}
 	apiHandler.SetIcons(iconsSvc)
+	apiHandler.SetTelemetry(st, cfg.TelemetryRegisterURL, cfg.TelemetryIngestURL)
 
 	// Constructed only when enabled — analyticsEnabled (above) still flows
 	// to the frontend either way via ServeSite, but h.analytics itself
@@ -239,6 +240,8 @@ func New(ctx context.Context, cfg config.Config, st *store.Store, static fs.FS) 
 	mux.HandleFunc("GET /api/site/pages/{path...}", apiHandler.ServeSitePage)
 	mux.HandleFunc("GET /api/search", apiHandler.ServeSearch)
 	mux.HandleFunc("GET /api/admin/version", apiHandler.AdminCheckVersion)
+	mux.HandleFunc("GET /api/admin/telemetry", apiHandler.AdminGetTelemetryStatus)
+	mux.HandleFunc("POST /api/admin/telemetry", apiHandler.AdminSetTelemetryEnabled)
 	mux.HandleFunc("GET /api/admin/site", apiHandler.AdminGetSite)
 	mux.HandleFunc("PUT /api/admin/site/manifest", apiHandler.AdminPutManifest)
 	mux.HandleFunc("PUT /api/admin/site/files/{relPath...}", apiHandler.AdminPutSiteFile)
