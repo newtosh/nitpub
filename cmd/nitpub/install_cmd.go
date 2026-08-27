@@ -26,6 +26,7 @@ func newInstallCmd() *cobra.Command {
 		withCaddy, noCaddy                               bool
 		withFederation, noFederation                     bool
 		withAnalytics, noAnalytics                       bool
+		withTelemetry, noTelemetry                       bool
 		nonInteractive                                   bool
 		skipDoctor                                       bool
 	)
@@ -50,11 +51,13 @@ skipped rather than overwritten.`,
 				WithCaddy:         gateChoice(withCaddy, noCaddy),
 				WithFederation:    gateChoice(withFederation, noFederation),
 				WithAnalytics:     gateChoice(withAnalytics, noAnalytics),
+				WithTelemetry:     gateChoice(withTelemetry, noTelemetry),
 				NonInteractive:    nonInteractive || !isInteractiveTTY(),
 				SkipDoctor:        skipDoctor,
 				CaddyFlagConflict: withCaddy && noCaddy,
 				FedFlagConflict:   withFederation && noFederation,
 				AnalyticsConflict: withAnalytics && noAnalytics,
+				TelemetryConflict: withTelemetry && noTelemetry,
 			}
 			return runInstall(opts)
 		},
@@ -76,6 +79,8 @@ skipped rather than overwritten.`,
 	cmd.Flags().BoolVar(&noFederation, "no-federation", false, "set cross_post_default=false on first site.toml write")
 	cmd.Flags().BoolVar(&withAnalytics, "with-analytics", false, "scaffold analytics config keys")
 	cmd.Flags().BoolVar(&noAnalytics, "no-analytics", false, "skip analytics gate")
+	cmd.Flags().BoolVar(&withTelemetry, "with-telemetry", false, "opt in to version telemetry")
+	cmd.Flags().BoolVar(&noTelemetry, "no-telemetry", false, "skip telemetry gate")
 	cmd.Flags().BoolVar(&nonInteractive, "yes", false, "noninteractive: require flags, fail closed if missing")
 	cmd.Flags().BoolVar(&skipDoctor, "skip-doctor", false, "skip doctor at end (not recommended)")
 	return cmd
@@ -100,13 +105,13 @@ func gateChoice(yes, no bool) tribool {
 }
 
 type installOpts struct {
-	Domain, Title, Actor, Secret, Username, Password      string
-	ConfigPath, DataDir, BinaryPath                       string
-	Port                                                  int
-	WithCaddy, WithFederation, WithAnalytics              tribool
-	NonInteractive                                        bool
-	SkipDoctor                                            bool
-	CaddyFlagConflict, FedFlagConflict, AnalyticsConflict bool
+	Domain, Title, Actor, Secret, Username, Password                         string
+	ConfigPath, DataDir, BinaryPath                                          string
+	Port                                                                     int
+	WithCaddy, WithFederation, WithAnalytics, WithTelemetry                  tribool
+	NonInteractive                                                           bool
+	SkipDoctor                                                               bool
+	CaddyFlagConflict, FedFlagConflict, AnalyticsConflict, TelemetryConflict bool
 }
 
 func isInteractiveTTY() bool {
@@ -188,6 +193,17 @@ func runInstall(o installOpts) error {
 		cliui.OK("Analytics gate declined — skipped")
 	}
 
+	if o.WithTelemetry == triYes {
+		if err := maybeTelemetryEnable(o); err != nil {
+			// Registration failure shouldn't fail the whole install —
+			// warn and leave telemetry disabled, matching the "leave it
+			// off" fallback used elsewhere for optional gates.
+			cliui.Warn("telemetry: " + err.Error())
+		}
+	} else {
+		cliui.OK("Telemetry gate declined — skipped")
+	}
+
 	if err := maybeAdminInit(o); err != nil {
 		return err
 	}
@@ -238,12 +254,13 @@ func (o *installOpts) fillInteractive() error {
 	}
 
 	needForm := o.Domain == "" || o.Actor == "" ||
-		o.WithCaddy == triUnset || o.WithFederation == triUnset || o.WithAnalytics == triUnset
+		o.WithCaddy == triUnset || o.WithFederation == triUnset || o.WithAnalytics == triUnset || o.WithTelemetry == triUnset
 	if needForm {
 		domain, actor, title, secret := o.Domain, o.Actor, o.Title, o.Secret
 		caddy := o.WithCaddy == triYes || o.WithCaddy == triUnset
 		fed := o.WithFederation != triNo
 		analytics := o.WithAnalytics == triYes
+		telemetryOptIn := o.WithTelemetry == triYes
 
 		form := huh.NewForm(
 			huh.NewGroup(
@@ -266,6 +283,7 @@ func (o *installOpts) fillInteractive() error {
 				huh.NewConfirm().Title("Install/configure Caddy for this domain?").Value(&caddy),
 				huh.NewConfirm().Title("Enable federated cross-post by default?").Value(&fed),
 				huh.NewConfirm().Title("Scaffold GoatCounter analytics config?").Value(&analytics),
+				huh.NewConfirm().Title("Opt in to version telemetry? (sends version + instance ID to your configured receiver; off by default, no data leaves without this)").Value(&telemetryOptIn),
 			),
 		)
 		if err := form.Run(); err != nil {
@@ -280,6 +298,9 @@ func (o *installOpts) fillInteractive() error {
 		}
 		if o.WithAnalytics == triUnset {
 			o.WithAnalytics = mapBool(analytics)
+		}
+		if o.WithTelemetry == triUnset {
+			o.WithTelemetry = mapBool(telemetryOptIn)
 		}
 	}
 	if strings.TrimSpace(o.Secret) == "" {
@@ -308,7 +329,7 @@ func mapBool(v bool) tribool {
 }
 
 func (o installOpts) validate() error {
-	if o.CaddyFlagConflict || o.FedFlagConflict || o.AnalyticsConflict {
+	if o.CaddyFlagConflict || o.FedFlagConflict || o.AnalyticsConflict || o.TelemetryConflict {
 		return fmt.Errorf("conflicting with-/no- flags for an optional gate")
 	}
 	if strings.TrimSpace(o.Domain) == "" {
@@ -603,6 +624,20 @@ func maybeAdminInit(o installOpts) error {
 		return fmt.Errorf("admin init: %w", err)
 	}
 	cliui.OK("admin account ready")
+	return nil
+}
+
+func maybeTelemetryEnable(o installOpts) error {
+	cliui.Progress("registering telemetry")
+	cmd := adminCmd(o, "telemetry", "enable", "--offline")
+	out, err := cmd.CombinedOutput()
+	if len(out) > 0 {
+		_, _ = os.Stdout.Write(out)
+	}
+	if err != nil {
+		return fmt.Errorf("enable: %w", err)
+	}
+	cliui.OK("telemetry enabled")
 	return nil
 }
 
