@@ -46,7 +46,7 @@ const baseSections: (AdminSection & { info: string })[] = [
   {
     id: 'system',
     title: 'System',
-    info: 'Check the running build against the latest release.',
+    info: 'Check the running build against the latest release, and manage opt-in telemetry.',
   },
 ]
 

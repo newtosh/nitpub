@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue'
 import { fetchTelemetryStatus, setTelemetryEnabled, type TelemetryStatus } from '../lib/telemetry'
 
 const status = ref<TelemetryStatus | null>(null)
+const loading = ref(true)
 const saving = ref(false)
 const error = ref('')
 
@@ -11,6 +12,8 @@ onMounted(async () => {
     status.value = await fetchTelemetryStatus()
   } catch {
     error.value = 'Could not load telemetry status.'
+  } finally {
+    loading.value = false
   }
 })
 
@@ -39,8 +42,23 @@ async function onChange(e: Event) {
       project's telemetry collector — off by default, no data leaves this instance without this.
     </p>
     <label class="field checkbox">
-      <input type="checkbox" :checked="status?.enabled ?? false" :disabled="saving" @change="onChange" />
-      <span>{{ saving ? 'Updating…' : status?.enabled ? 'Telemetry enabled' : 'Telemetry disabled' }}</span>
+      <input
+        type="checkbox"
+        :checked="status?.enabled ?? false"
+        :disabled="!status || saving"
+        @change="onChange"
+      />
+      <span>{{
+        loading
+          ? 'Loading…'
+          : saving
+            ? 'Updating…'
+            : !status
+              ? 'Status unavailable'
+              : status.enabled
+                ? 'Telemetry enabled'
+                : 'Telemetry disabled'
+      }}</span>
     </label>
     <p v-if="error" class="status error">{{ error }}</p>
   </div>
