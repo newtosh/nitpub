@@ -27,8 +27,7 @@ fi
 # creation, which would leave the credential recoverable by anyone with
 # later read access to the account. Retrieve it over SSH:
 #   ssh root@YOUR_DROPLET_IP cat /root/nitpub-admin-password
-umask 077
-echo "$ADMIN_PASSWORD" >/root/nitpub-admin-password
+(umask 077; echo "$ADMIN_PASSWORD" >/root/nitpub-admin-password)
 chmod 600 /root/nitpub-admin-password
 
 curl -fsSL https://raw.githubusercontent.com/newtosh/nitpub/main/scripts/install.sh | bash -s -- \
