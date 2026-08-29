@@ -207,6 +207,12 @@ func runInstall(o installOpts) error {
 	if err := maybeAdminInit(o); err != nil {
 		return err
 	}
+	// admin init runs directly as root (bypassing the nitpub service user),
+	// so nitpub.db and anything else it touches under DataDir come out
+	// root-owned — re-chown so the systemd unit (User=nitpub) can open them.
+	if err := install.EnsureDataDir(o.DataDir); err != nil {
+		return fmt.Errorf("re-chown data dir after admin init: %w", err)
+	}
 
 	if !o.SkipDoctor {
 		// Core install always configures systemd; require the unit to be active.
