@@ -11,7 +11,16 @@
 set -euo pipefail
 
 CONFIG_SECRET="$(openssl rand -hex 32)"
-ADMIN_PASSWORD="$(openssl rand -hex 16)"
+
+# Reuse an existing password file on rerun instead of regenerating: `nitpub
+# install` skips admin creation once an admin already exists, so a fresh
+# random value here would silently desync the saved file from the real
+# account password on any second run (recovery, re-run of this StackScript, etc.).
+if [[ -f /root/nitpub-admin-password ]]; then
+  ADMIN_PASSWORD="$(cat /root/nitpub-admin-password)"
+else
+  ADMIN_PASSWORD="$(openssl rand -hex 16)"
+fi
 
 # Admin password goes to a root-only file, not console/boot-log output —
 # most providers retain that output in the dashboard/API well past instance
