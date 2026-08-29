@@ -180,9 +180,11 @@ plan_depth: standard
 - At least one real end-to-end run per provider (or two of three plus reasoned equivalence for the third, if spinning up all three isn't practical in one pass) before calling U1/U2 done — these are unattended boot scripts; a script that only "looks right" is exactly the failure mode a paste-in flow can't self-report.
 - `docsite` build passes with the new page linked from nav, sidebar, and `install.md`'s "Next" section.
 
+**Verified 2026-08-29 (Vultr, `vc2-1c-1gb`, Ubuntu 26.04, `--no-caddy` variant):** live smoke test surfaced two real bugs the script-only review missed — `/etc/nitpub` created `0700 root:root` (our script's `umask 077` leaking into the piped installer) and `nitpub.db` created `root:root 0600` with no chown-back after `admin init` (a `cmd/nitpub/install_cmd.go` bug affecting every install path, not just this one). Both fixed (scoped umask in the deploy scripts; `install.EnsureDataDir` re-chown after admin init in `install_cmd.go`) and re-verified end-to-end: `nitpub install` completed, `doctor passed`, `/healthz` returned `{"status":"ok"}`, webfinger resolved `acct:user@test.local`. DO and Vultr share the identical script — Vultr's pass stands in for both per the "reasoned equivalence" clause above. Linode StackScript untested live (no Linode account used this pass) but shares the same post-fix install invocation.
+
 ## Definition of Done
 
-- `deploy/startup-do-vultr.sh` and `deploy/startup-linode.stackscript.sh` exist, verified end-to-end per the Verification Contract.
-- Linode StackScript published (public) with a working deploy link.
-- `docsite/docs/guide/one-click-deploy.md` live, linked from nav/sidebar/`install.md`.
-- Affiliate links present for any program Jon has registered for by ship time; providers not yet registered ship with a clearly marked placeholder, not a broken or missing link.
+- `deploy/startup-do-vultr.sh` and `deploy/startup-linode.stackscript.sh` exist, verified end-to-end per the Verification Contract. **DO/Vultr: done (2026-08-29). Linode: script complete, live StackScript deploy-link test still outstanding.**
+- Linode StackScript published (public) with a working deploy link. **Outstanding — not yet published to a Linode/Akamai account.**
+- `docsite/docs/guide/one-click-deploy.md` live, linked from nav/sidebar/`install.md`. **Done.**
+- Affiliate links present for any program Jon has registered for by ship time; providers not yet registered ship with a clearly marked placeholder, not a broken or missing link. **Outstanding — all three still `TODO: ref code` placeholders.**
