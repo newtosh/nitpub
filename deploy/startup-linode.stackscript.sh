@@ -10,6 +10,12 @@
 
 set -euo pipefail
 
+if [[ -z "${DOMAIN:-}" ]]; then
+  echo "error: the 'domain' StackScript field is required — fill it in when deploying" >&2
+  exit 1
+fi
+ACTOR="${ACTOR:-user}"
+
 CONFIG_SECRET="$(openssl rand -hex 32)"
 
 # Reuse an existing password file on rerun instead of regenerating: `nitpub

@@ -1,8 +1,8 @@
 # One-click deploy
 
-Same result as [Quick install](/guide/install), skipping the SSH step: create a VPS with a startup script pasted in, and nitpub installs itself on first boot. You'll still land on the same `/login` step either way.
+Same result as [Quick install](/guide/install), skipping the SSH install step: create a VPS with a startup script pasted in, and nitpub installs itself on first boot. You'll still land on the same `/login` step either way — and you'll still need SSH afterward to retrieve the generated admin password (see "After it installs" below).
 
-These are referral/signup links to each provider's affiliate program — not prefilled instance-creation forms. No provider lets you deep-link domain/region/size into their create page; you fill those in yourself as usual, then paste the script.
+The provider links below are plain homepage/signup links for now — affiliate/referral codes are still TODO for all three (see the `TODO: ref code` note under each provider). No provider lets you deep-link domain/region/size into their create page either way; you fill those in yourself as usual, then paste the script.
 
 ## Before you start
 

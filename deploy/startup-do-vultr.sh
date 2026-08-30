@@ -10,6 +10,15 @@ NITPUB_ACTOR="user"
 
 set -euo pipefail
 
+if [[ -z "$NITPUB_DOMAIN" || "$NITPUB_DOMAIN" == "blog.example.com" ]]; then
+  echo "error: edit NITPUB_DOMAIN at the top of this script before pasting it in" >&2
+  exit 1
+fi
+if [[ -z "$NITPUB_ACTOR" ]]; then
+  echo "error: NITPUB_ACTOR must not be empty" >&2
+  exit 1
+fi
+
 CONFIG_SECRET="$(openssl rand -hex 32)"
 
 # Reuse an existing password file on rerun instead of regenerating: `nitpub

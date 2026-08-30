@@ -210,7 +210,7 @@ func runInstall(o installOpts) error {
 	// admin init runs directly as root (bypassing the nitpub service user),
 	// so nitpub.db and anything else it touches under DataDir come out
 	// root-owned — re-chown so the systemd unit (User=nitpub) can open them.
-	if err := install.EnsureDataDir(o.DataDir); err != nil {
+	if err := rechownDataDir(o.DataDir); err != nil {
 		return fmt.Errorf("re-chown data dir after admin init: %w", err)
 	}
 
@@ -224,6 +224,19 @@ func runInstall(o installOpts) error {
 	cliui.OK("install finished")
 	fmt.Fprintf(os.Stderr, "\nNext: open https://%s/login — then publish your first note at /author/compose\n", o.Domain)
 	return nil
+}
+
+// rechownDataDir re-chowns dataDir to the nitpub system user, matching
+// ensureSystemUserAndData's euid split: install.EnsureDataDir shells out to
+// bare `chown` and silently ignores its error, which only works when this
+// process already has permission (running as root). Under the sudo-based
+// non-root path, it must go through sudoRun instead, same as
+// ensureSystemUserAndData's own else-branch.
+func rechownDataDir(dataDir string) error {
+	if os.Geteuid() == 0 {
+		return install.EnsureDataDir(dataDir)
+	}
+	return sudoRun("chown", "-R", "nitpub:nitpub", dataDir)
 }
 
 func ensureSystemUserAndData(dataDir string) error {

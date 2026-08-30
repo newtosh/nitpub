@@ -66,7 +66,7 @@ Replace `ACTOR` with the `actor` value from your config.
 
 ## Next
 
-- [One-click deploy](/guide/one-click-deploy) to skip the SSH step via a provider startup script
+- [One-click deploy](/guide/one-click-deploy) to skip the SSH install step via a provider startup script
 - [Manual download](/guide/manual-download) if you prefer not to use the one-liner
 - [Federation](/guide/federation) for a visible federated reply
 - [Analytics](/guide/analytics) for optional GoatCounter
