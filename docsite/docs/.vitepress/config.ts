@@ -14,6 +14,7 @@ export default defineConfig({
     nav: [
       { text: 'Home', link: '/' },
       { text: 'Install', link: '/guide/install' },
+      { text: 'One-click deploy', link: '/guide/one-click-deploy' },
       { text: 'Changelog', link: '/changelog' },
       { text: 'Product site', link: 'https://www.nitpub.com/' },
     ],
@@ -23,6 +24,7 @@ export default defineConfig({
         items: [
           { text: 'Overview', link: '/' },
           { text: 'Quick install', link: '/guide/install' },
+          { text: 'One-click deploy', link: '/guide/one-click-deploy' },
           { text: 'Manual download', link: '/guide/manual-download' },
           { text: 'Updates', link: '/guide/updates' },
           { text: 'Federation', link: '/guide/federation' },
