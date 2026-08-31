@@ -26,6 +26,14 @@ Quick start on a Debian/Ubuntu VPS as root:
 curl -fsSL https://raw.githubusercontent.com/newtosh/nitpub/main/scripts/install.sh | bash
 ```
 
+## Deploy
+
+[![Deploy on DigitalOcean](https://img.shields.io/badge/Deploy-DigitalOcean-0080FF)](https://docs.nitpub.com/guide/one-click-deploy#digitalocean)
+[![Deploy on Vultr](https://img.shields.io/badge/Deploy-Vultr-007BFC)](https://docs.nitpub.com/guide/one-click-deploy#vultr)
+[![Deploy on Linode](https://img.shields.io/badge/Deploy-Linode-00A95C)](https://cloud.linode.com/stackscripts/2203935)
+
+Paste-a-script deploy for DigitalOcean/Vultr, a real form-field deploy link for Linode/Akamai. Details: **[docs.nitpub.com/guide/one-click-deploy](https://docs.nitpub.com/guide/one-click-deploy)**
+
 ## Advanced / ops
 
 Multi-instance, GoatCounter deep dive, Cloudflare Pages for www/docs, maintainer workflows: [`deploy/README.md`](deploy/README.md) · [`deploy/pages.md`](deploy/pages.md)

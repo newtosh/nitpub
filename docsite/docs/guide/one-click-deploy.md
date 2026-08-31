@@ -74,6 +74,10 @@ async function copyScript() {
 }
 </script>
 
+[![Deploy on DigitalOcean](https://img.shields.io/badge/Deploy-DigitalOcean-0080FF)](#digitalocean)
+[![Deploy on Vultr](https://img.shields.io/badge/Deploy-Vultr-007BFC)](#vultr)
+[![Deploy on Linode](https://img.shields.io/badge/Deploy-Linode-00A95C)](https://cloud.linode.com/stackscripts/2203935)
+
 Same result as [Quick install](/guide/install), skipping the SSH install step: create a VPS with a startup script pasted in, and nitpub installs itself on first boot. You'll still land on the same `/login` step either way — and you'll still need SSH afterward to retrieve the generated admin password (see "After it installs" below).
 
 The provider links below are plain homepage/signup links for now — affiliate/referral codes are still TODO for all three (see the `TODO: ref code` note under each provider). No provider lets you deep-link domain/region/size into their create page either way; you fill those in yourself as usual, then paste the script.
