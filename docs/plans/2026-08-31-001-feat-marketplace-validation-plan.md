@@ -301,9 +301,9 @@ The dotted lines are the key structural point: badge/generator work (U4, U5) doe
 
 These are manual, portal-based steps outside `ce-work`'s reach — no code executes them, a human with account access does:
 
-1. **DO Vendor Portal onboarding** — email `one-clicks-team@digitalocean.com` to request access, then submit U1's built snapshot (via U2's CI output) through `cloud.digitalocean.com/vendorportal`.
-2. **Vultr Verified Vendor application** — apply through Vultr's Cloud Manager, sign the Publisher Agreement, use U3's `vendor-data.sh` + README checklist to fill out the Build-from-Vendor-Data flow.
-3. Both are **independent and can proceed in parallel** — no ordering dependency between them.
+1. **DO Vendor Portal onboarding** — **submitted 2026-08-31** via `marketplace.digitalocean.com/vendors`'s application form (a real self-serve form exists; the `one-clicks-team@digitalocean.com` email is the fallback if it stalls, not the primary path). Once approved: submit U1's built snapshot (via U2's CI output) through `cloud.digitalocean.com/vendorportal`.
+2. **Vultr Verified Vendor application** — **submitted 2026-08-31** via `www.vultr.com/marketplace/become-a-verified-vendor/`. Once approved, a "Marketplace" icon unlocks at the bottom of Cloud Manager's left nav; use U3's `vendor-data.sh` + README checklist to fill out the Build-from-Vendor-Data flow there.
+3. Both applications were independent and proceeded in parallel — no ordering dependency between them. Both are now in the "waiting on vendor review" state; no code work is blocked on either.
 4. Neither has a published review-timeline SLA (Key Decision 2) — no follow-up checkpoint scheduled; badges/docs already work regardless of approval status since U4/U5 don't depend on approval, only on the artifacts existing.
 5. **Snapshot cost review** — review and prune stale DO snapshots from CI runs at least quarterly, or after every ~5 `workflow_dispatch` runs, whichever comes first. No automated cleanup exists (Deferred to Follow-Up Work); this is the interim manual checkpoint.
 6. **Vendor account ownership** — name which DO account and which Vultr account hold Vendor Portal / Verified Vendor access before submitting either application, require MFA on both, and note the handoff plan if that account's owner changes. Both are long-term credentials of record for the resulting marketplace listings, not one-time submission logins.
