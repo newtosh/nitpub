@@ -3,7 +3,7 @@
 # <UDF name="actor" label="Federation actor (handle username)" default="user" />
 #
 # Publish this as a Linode StackScript (Cloud Manager > StackScripts > Create)
-# to get a shareable "Deploy" link with domain/actor as real form fields —
+# to get a shareable "Deploy" link with domain/actor as real form fields -
 # see docsite/docs/guide/one-click-deploy.md. Runs as root on first boot;
 # installs nitpub unattended via the public install.sh release path (see
 # docsite/docs/guide/install.md for the interactive equivalent).
@@ -11,7 +11,7 @@
 set -euo pipefail
 
 if [[ -z "${DOMAIN:-}" ]]; then
-  echo "error: the 'domain' StackScript field is required — fill it in when deploying" >&2
+  echo "error: the 'domain' StackScript field is required - fill it in when deploying" >&2
   exit 1
 fi
 ACTOR="${ACTOR:-user}"
@@ -28,7 +28,7 @@ else
   ADMIN_PASSWORD="$(openssl rand -hex 16)"
 fi
 
-# Admin password goes to a root-only file, not console/boot-log output —
+# Admin password goes to a root-only file, not console/boot-log output -
 # most providers retain that output in the dashboard/API well past instance
 # creation, which would leave the credential recoverable by anyone with
 # later read access to the account. Retrieve it over SSH:
