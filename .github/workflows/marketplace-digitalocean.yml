@@ -31,7 +31,6 @@ jobs:
         run: |
           set -euo pipefail
           cd deploy/marketplace/digitalocean
-          packer init marketplace-image.json || true
           packer build -machine-readable marketplace-image.json | tee build.log
 
       - name: Summarize snapshot
