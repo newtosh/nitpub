@@ -1,0 +1,50 @@
+name: DigitalOcean Marketplace image
+
+on:
+  workflow_dispatch: {}
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # Requires a "do-marketplace" GitHub Environment with required-reviewer
+    # protection configured in repo Settings > Environments (manual,
+    # one-time repo-admin step — not created by this workflow file).
+    # Without it, DIGITALOCEAN_TOKEN is exposed to any collaborator who can
+    # dispatch this workflow or push a v* tag.
+    environment: do-marketplace
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Packer
+        run: |
+          curl -fsSL https://releases.hashicorp.com/packer/1.11.2/packer_1.11.2_linux_amd64.zip -o packer.zip
+          unzip -o packer.zip
+          sudo mv packer /usr/local/bin/packer
+          packer plugins install github.com/digitalocean/digitalocean
+
+      - name: Build Marketplace image
+        env:
+          DIGITALOCEAN_TOKEN: ${{ secrets.DIGITALOCEAN_TOKEN }}
+        run: |
+          set -euo pipefail
+          cd deploy/marketplace/digitalocean
+          packer init marketplace-image.json || true
+          packer build -machine-readable marketplace-image.json | tee build.log
+
+      - name: Summarize snapshot
+        run: |
+          snapshot_id="$(grep -oE 'artifact,0,id,[^,]+' deploy/marketplace/digitalocean/build.log | tail -1 | cut -d, -f4 || true)"
+          {
+            echo "## DigitalOcean Marketplace image build"
+            echo ""
+            if [[ -n "$snapshot_id" ]]; then
+              echo "Snapshot ID: \`${snapshot_id}\`"
+            else
+              echo "Snapshot ID not parsed from build log — check the Build step output above."
+            fi
+            echo ""
+            echo "Submit this ID manually through the DO Vendor Portal: https://cloud.digitalocean.com/vendorportal"
+          } >> "$GITHUB_STEP_SUMMARY"
