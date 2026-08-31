@@ -31,7 +31,7 @@ else
   ADMIN_PASSWORD="$(openssl rand -hex 16)"
 fi
 
-# Admin password goes to a root-only file, not console/boot-log output —
+# Admin password goes to a root-only file, not console/boot-log output -
 # most providers retain that output in the dashboard/API well past instance
 # creation, which would leave the credential recoverable by anyone with
 # later read access to the account. Retrieve it over SSH:
