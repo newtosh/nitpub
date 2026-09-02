@@ -55,6 +55,14 @@ After changing `actor` or `domain`, restart `nitpub`. The actor document is rebu
 
 **Instance identity is not in the repo.** The committed `deploy/config.toml.example` is a generic template (`actor = "user"`). Your production handle (e.g. `@you@blog.example.com`) lives only in `/etc/nitpub/config.toml` (or `~/.config/nitpub/config.toml`) on that server. Bootstrap scripts accept `NITPUB_ACTOR` when first creating config.
 
+**`--enable-quote-posts` is a CLI flag, not a config key.** Unlike everything in the table above, quote-post support (the Daring-Fireball-style linked-list post kind) is gated by a flag on the `nitpub` command itself — it deliberately has no `config.toml` equivalent, so it can travel dark in a release and be flipped on for a running instance without touching that instance's persisted config. Add it to the systemd unit's `ExecStart` line:
+
+```ini
+ExecStart=/usr/local/bin/nitpub --enable-quote-posts
+```
+
+Then `systemctl daemon-reload && systemctl restart nitpub` (or `nitpub-<name>` for a [multi-instance](#multi-instance-same-vps-second-domain) setup). Remove the flag and restart again to turn it back off — nothing in `config.toml` needs to change either way.
+
 **CLI and server share the same config.** Admin commands need exclusive access to the database; use `--offline` on the VPS (stops the service, runs the command, restarts):
 
 ```bash
