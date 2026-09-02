@@ -13,6 +13,15 @@ export type Post = {
     remote_url?: string
   }
   reply_count?: number
+  // Raw structured input for a kind:"quote" post (internal/outbox.QuoteFields
+  // mirror) — undefined for every other kind.
+  quote?: {
+    source_url: string
+    title?: string
+    excerpt: string
+    commentary?: string
+    via?: string
+  }
 }
 
 import { plainTextFromMarkdown, stripTitleMarker } from './markdown'
@@ -255,7 +264,15 @@ export function postDisplayTitle(post: Post): string {
 
 export async function updatePost(
   slug: string,
-  payload: { kind: string; content: string },
+  payload: {
+    kind: string
+    content: string
+    source_url?: string
+    title?: string
+    excerpt?: string
+    commentary?: string
+    via?: string
+  },
 ): Promise<Post> {
   const res = await fetch(`/api/posts/${slug}`, {
     method: 'PUT',

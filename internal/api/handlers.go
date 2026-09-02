@@ -185,9 +185,12 @@ type createPostRequest struct {
 	Kind     string `json:"kind"`
 	Content  string `json:"content"`
 	Federate *bool  `json:"federate,omitempty"`
-	// SourceURL, Excerpt, Commentary, Via carry a kind:"quote" post's
-	// structured input (R2) — ignored for every other kind.
+	// SourceURL, Title, Excerpt, Commentary, Via carry a kind:"quote"
+	// post's structured input (R2, R3) — ignored for every other kind.
+	// Title is the auto-fetched (or manually typed) page title, used as
+	// the published link text instead of falling back to the URL's host.
 	SourceURL  string `json:"source_url,omitempty"`
+	Title      string `json:"title,omitempty"`
 	Excerpt    string `json:"excerpt,omitempty"`
 	Commentary string `json:"commentary,omitempty"`
 	Via        string `json:"via,omitempty"`
@@ -197,6 +200,7 @@ type createPostRequest struct {
 func (req createPostRequest) quoteFields() outbox.QuoteFields {
 	return outbox.QuoteFields{
 		SourceURL:  req.SourceURL,
+		Title:      req.Title,
 		Excerpt:    req.Excerpt,
 		Commentary: req.Commentary,
 		Via:        req.Via,
@@ -312,9 +316,10 @@ func (h *Handler) ServePostObject(w http.ResponseWriter, r *http.Request) {
 type updatePostRequest struct {
 	Kind    string `json:"kind"`
 	Content string `json:"content"`
-	// SourceURL, Excerpt, Commentary, Via carry a kind:"quote" post's
-	// structured input (R2) — ignored for every other kind.
+	// SourceURL, Title, Excerpt, Commentary, Via carry a kind:"quote"
+	// post's structured input (R2, R3) — ignored for every other kind.
 	SourceURL  string `json:"source_url,omitempty"`
+	Title      string `json:"title,omitempty"`
 	Excerpt    string `json:"excerpt,omitempty"`
 	Commentary string `json:"commentary,omitempty"`
 	Via        string `json:"via,omitempty"`
@@ -323,6 +328,7 @@ type updatePostRequest struct {
 func (req updatePostRequest) quoteFields() outbox.QuoteFields {
 	return outbox.QuoteFields{
 		SourceURL:  req.SourceURL,
+		Title:      req.Title,
 		Excerpt:    req.Excerpt,
 		Commentary: req.Commentary,
 		Via:        req.Via,

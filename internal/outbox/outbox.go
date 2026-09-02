@@ -84,9 +84,12 @@ type Post struct {
 // QuoteFields captures a quote post's structured input: a source link, the
 // quoted excerpt, optional commentary, and an optional via/hat-tip
 // attribution. SourceURL and Excerpt are required (BuildQuoteContent
-// enforces it); Commentary and Via are optional (R2).
+// enforces it); Title, Commentary, and Via are optional (R2, R3). Title
+// carries the auto-fetched (or manually typed) page title so it becomes
+// the actual published link text — see BuildQuoteContent.
 type QuoteFields struct {
 	SourceURL  string `json:"source_url"`
+	Title      string `json:"title,omitempty"`
 	Excerpt    string `json:"excerpt"`
 	Commentary string `json:"commentary,omitempty"`
 	Via        string `json:"via,omitempty"`
@@ -98,10 +101,10 @@ type QuoteFields struct {
 // paragraph, and an optional via line. Commentary and Via are omitted
 // entirely when blank — never rendered as an empty line.
 //
-// QuoteFields has no separate link-text field, so the link text is the
-// source URL's host, mirroring the existing "Read more on <host>" link
-// convention in ArticleFederationContentHTML rather than inventing a new
-// one.
+// The link text is Title when set (R3: the auto-fetched or manually typed
+// page title), falling back to the source URL's host — mirroring the
+// existing "Read more on <host>" link convention in
+// ArticleFederationContentHTML — when Title is blank.
 func BuildQuoteContent(f QuoteFields) (string, error) {
 	sourceURL := strings.TrimSpace(f.SourceURL)
 	excerpt := strings.TrimSpace(f.Excerpt)
@@ -112,9 +115,12 @@ func BuildQuoteContent(f QuoteFields) (string, error) {
 		return "", fmt.Errorf("excerpt is required")
 	}
 
-	linkText := sourceURL
-	if u, err := url.Parse(sourceURL); err == nil && u.Host != "" {
-		linkText = u.Host
+	linkText := strings.TrimSpace(f.Title)
+	if linkText == "" {
+		linkText = sourceURL
+		if u, err := url.Parse(sourceURL); err == nil && u.Host != "" {
+			linkText = u.Host
+		}
 	}
 
 	var b strings.Builder

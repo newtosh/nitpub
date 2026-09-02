@@ -16,7 +16,7 @@ import {
 } from '../lib/contentKinds'
 import { federationHint } from '../lib/federationProfile'
 import { crossPostDefaultFromConfig } from '../lib/federationDelivery'
-import { fetchSiteConfig } from '../lib/site'
+import { fetchSiteConfig, getCachedSiteConfig } from '../lib/site'
 import { readMarkdownFile } from '../lib/markdownFile'
 import {
   clearComposeDraft,
@@ -30,9 +30,21 @@ const props = defineProps<{
   statusVariant?: 'idle' | 'saving' | 'saved' | 'error'
 }>()
 
+// Quote posts (R2) have no composed-markdown "content" field on the wire —
+// the structured fields below travel alongside kind:"quote" instead (U3's
+// createPostRequest/updatePostRequest). Optional here since note/article
+// payloads never set them.
+type QuotePayloadFields = {
+  source_url?: string
+  title?: string
+  excerpt?: string
+  commentary?: string
+  via?: string
+}
+
 const emit = defineEmits<{
-  publish: [payload: { kind: string; content: string; federate: boolean }]
-  save: [payload: { kind: string; content: string }]
+  publish: [payload: { kind: string; content: string; federate: boolean } & QuotePayloadFields]
+  save: [payload: { kind: string; content: string } & QuotePayloadFields]
   cancel: []
   delete: []
   'draft-change': [payload: { kind: 'note' | 'article'; title: string; content: string }]
@@ -40,11 +52,35 @@ const emit = defineEmits<{
 
 const isEdit = () => !!props.post
 
-const kind = ref<'note' | 'article'>('note')
+const kind = ref<'note' | 'article' | 'quote'>('note')
 const noteContent = ref('')
 const articleTitle = ref('')
 const articleBody = ref('')
 const clientError = ref('')
+
+// Quote-post compose state (R2) — bypasses the draft-autosave system
+// entirely (U1 decision: the composer's required-field validation would
+// block every autosave tick), so there's no equivalent of noteContent's
+// server-draft wiring here.
+const quotePostsEnabled = ref(false)
+const quoteSourceUrl = ref('')
+const quoteExcerpt = ref('')
+const quoteCommentary = ref('')
+const quoteVia = ref('')
+// Local-only: prefilled from /api/unfurl's title (R3) for the author's
+// reference while composing. Not sent to the API — BuildQuoteContent
+// (internal/outbox) always derives the published link text from the source
+// URL's hostname (KTD1/U1), so there is currently no field on the wire for
+// a custom link title to land in.
+const quoteLinkTitle = ref('')
+const quoteTitleFetching = ref(false)
+const baselineQuote = ref<{
+  sourceUrl: string
+  excerpt: string
+  commentary: string
+  via: string
+} | null>(null)
+let quoteFetchToken = 0
 const convertNotice = ref('')
 const fileInput = ref<HTMLInputElement | null>(null)
 const openNotice = ref('')
@@ -120,7 +156,17 @@ function payloadsEqual(
 }
 
 const isDirty = computed(() => {
-  if (!baseline.value || !isEdit()) return false
+  if (!isEdit()) return false
+  if (baselineQuote.value) {
+    return (
+      kind.value !== 'quote' ||
+      quoteSourceUrl.value.trim() !== baselineQuote.value.sourceUrl ||
+      quoteExcerpt.value.trim() !== baselineQuote.value.excerpt ||
+      quoteCommentary.value.trim() !== baselineQuote.value.commentary ||
+      quoteVia.value.trim() !== baselineQuote.value.via
+    )
+  }
+  if (!baseline.value || kind.value === 'quote') return false
   return !payloadsEqual(currentPayload(), baseline.value)
 })
 
@@ -138,18 +184,53 @@ function applyContent(kindVal: 'note' | 'article', content: string) {
   }
 }
 
+function resetQuoteFields() {
+  quoteSourceUrl.value = ''
+  quoteExcerpt.value = ''
+  quoteCommentary.value = ''
+  quoteVia.value = ''
+  quoteLinkTitle.value = ''
+  quoteTitleFetching.value = false
+  quoteFetchToken++
+}
+
 function applyPost(post: Post | null | undefined) {
   convertNotice.value = ''
   clientError.value = ''
   draftNotice.value = ''
+  baselineQuote.value = null
   if (!post) {
     baseline.value = null
     kind.value = 'note'
     noteContent.value = ''
     articleTitle.value = ''
     articleBody.value = ''
+    resetQuoteFields()
     return
   }
+
+  // Quote posts bypass the draft-autosave/local-restore path entirely (U1) —
+  // load its structured fields straight from the server post.
+  if (post.kind === 'quote') {
+    baseline.value = null
+    kind.value = 'quote'
+    noteContent.value = ''
+    articleTitle.value = ''
+    articleBody.value = ''
+    quoteSourceUrl.value = post.quote?.source_url ?? ''
+    quoteExcerpt.value = post.quote?.excerpt ?? ''
+    quoteCommentary.value = post.quote?.commentary ?? ''
+    quoteVia.value = post.quote?.via ?? ''
+    quoteLinkTitle.value = post.quote?.title ?? ''
+    baselineQuote.value = {
+      sourceUrl: quoteSourceUrl.value,
+      excerpt: quoteExcerpt.value,
+      commentary: quoteCommentary.value,
+      via: quoteVia.value,
+    }
+    return
+  }
+  resetQuoteFields()
 
   const serverKind: 'note' | 'article' = post.kind === 'article' ? 'article' : 'note'
   baseline.value = { kind: serverKind, content: post.content }
@@ -167,6 +248,10 @@ function applyPost(post: Post | null | undefined) {
 
 function scheduleAutosave() {
   clearTimeout(autosaveTimer)
+  // Quote posts bypass draft-autosave entirely (U1 KTD2/step 7): the
+  // composer's required-field validation would reject every autosave tick
+  // while an author is still mid-way through filling the form.
+  if (kind.value === 'quote') return
   if (isEdit() && props.post?.status !== 'draft') {
     if (!props.post || !isDirty.value) return
     autosaveTimer = setTimeout(() => {
@@ -190,7 +275,16 @@ function scheduleAutosave() {
 function markSaved() {
   if (!props.post) return
   clearComposeDraft(postSlug(props.post.id))
-  baseline.value = { ...currentPayload() }
+  if (kind.value === 'quote') {
+    baselineQuote.value = {
+      sourceUrl: quoteSourceUrl.value.trim(),
+      excerpt: quoteExcerpt.value.trim(),
+      commentary: quoteCommentary.value.trim(),
+      via: quoteVia.value.trim(),
+    }
+  } else {
+    baseline.value = { ...currentPayload() }
+  }
   draftNotice.value = ''
 }
 
@@ -200,12 +294,56 @@ function clearDraft() {
 }
 
 function discardChanges() {
-  if (!props.post || !baseline.value) return
+  if (!props.post) return
+  if (baselineQuote.value) {
+    quoteSourceUrl.value = baselineQuote.value.sourceUrl
+    quoteExcerpt.value = baselineQuote.value.excerpt
+    quoteCommentary.value = baselineQuote.value.commentary
+    quoteVia.value = baselineQuote.value.via
+    clientError.value = ''
+    return
+  }
+  if (!baseline.value) return
   applyContent(baseline.value.kind, baseline.value.content)
   clearDraft()
   draftNotice.value = ''
   convertNotice.value = ''
   clientError.value = ''
+}
+
+// Fetch-and-handle-failure shape follows linkCard.ts's fetchLinkPreview:
+// any non-2xx status, network error, or timeout is swallowed and leaves
+// the title field empty and editable — auto-fetch must never block
+// publishing (R8, AE3). quoteFetchToken guards against a response that
+// resolves after the author has already moved on (edited the field
+// themselves, or submitted the form) from overwriting anything.
+async function onSourceUrlBlur() {
+  const raw = quoteSourceUrl.value.trim()
+  if (!raw || quoteLinkTitle.value.trim()) return
+  try {
+    const parsed = new URL(raw)
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return
+  } catch {
+    return
+  }
+
+  const token = ++quoteFetchToken
+  quoteTitleFetching.value = true
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 10000)
+  try {
+    const res = await fetch(`/api/unfurl?url=${encodeURIComponent(raw)}`, { signal: controller.signal })
+    if (token !== quoteFetchToken || !res.ok) return
+    const data = (await res.json()) as { title?: string }
+    if (token === quoteFetchToken && data.title && !quoteLinkTitle.value.trim()) {
+      quoteLinkTitle.value = data.title
+    }
+  } catch {
+    // Network error, abort/timeout — leave the field empty and editable.
+  } finally {
+    clearTimeout(timeout)
+    if (token === quoteFetchToken) quoteTitleFetching.value = false
+  }
 }
 
 function getDraftPayload(): { kind: 'note' | 'article'; title: string; content: string } {
@@ -244,9 +382,22 @@ watch(defaultLoaded, async (loaded) => {
 watch(() => props.post, applyPost, { immediate: true })
 
 onMounted(async () => {
-  if (isEdit()) return
+  // Seed synchronously from whatever's already cached (the admin shell
+  // fetches /api/site on mount too) so the Quote pill doesn't flicker in.
+  quotePostsEnabled.value = !!getCachedSiteConfig()?.quote_posts_enabled
+  if (isEdit()) {
+    try {
+      const site = await fetchSiteConfig()
+      quotePostsEnabled.value = !!site.quote_posts_enabled
+    } catch {
+      // Keep whatever the cached value already said (R6 gates writes
+      // server-side too, so a stale flag here is a UI nicety, not a hole).
+    }
+    return
+  }
   try {
     const site = await fetchSiteConfig()
+    quotePostsEnabled.value = !!site.quote_posts_enabled
     shareToFediverse.value = crossPostDefaultFromConfig(site.federation)
   } catch {
     shareToFediverse.value = true
@@ -336,6 +487,40 @@ function openFilePicker() {
 
 function submit() {
   clientError.value = ''
+
+  if (kind.value === 'quote') {
+    // Invalidate any unfurl request still in flight — its response, if it
+    // arrives after this point, must never overwrite a title on a post
+    // that's already been submitted.
+    quoteFetchToken++
+    const sourceUrl = quoteSourceUrl.value.trim()
+    const excerpt = quoteExcerpt.value.trim()
+    if (!sourceUrl) {
+      clientError.value = 'Source URL is required'
+      return
+    }
+    if (!excerpt) {
+      clientError.value = 'Excerpt is required'
+      return
+    }
+    const quoteFields = {
+      source_url: sourceUrl,
+      title: quoteLinkTitle.value.trim(),
+      excerpt,
+      commentary: quoteCommentary.value.trim(),
+      via: quoteVia.value.trim(),
+    }
+    if (isEdit()) {
+      emit('save', { kind: 'quote', content: '', ...quoteFields })
+    } else {
+      emit('publish', { kind: 'quote', content: '', federate: shareToFediverse.value, ...quoteFields })
+      resetQuoteFields()
+      kind.value = 'note'
+      openNotice.value = ''
+    }
+    return
+  }
+
   const content = composedContent.value.trim()
   if (!content) {
     clientError.value = 'Content is required'
@@ -387,8 +572,18 @@ function submit() {
         >
           Article
         </button>
+        <button
+          v-if="quotePostsEnabled || kind === 'quote'"
+          type="button"
+          class="pill"
+          :class="{ active: kind === 'quote' }"
+          :aria-pressed="kind === 'quote'"
+          @click="kind = 'quote'"
+        >
+          Quote
+        </button>
       </div>
-      <ComposeInfoTooltip :content="federationHint(kind)" />
+      <ComposeInfoTooltip v-if="kind !== 'quote'" :content="federationHint(kind)" />
     </div>
 
     <p v-if="convertNotice" class="notice">{{ convertNotice }}</p>
@@ -412,7 +607,7 @@ function submit() {
       </label>
     </template>
 
-    <template v-else>
+    <template v-else-if="kind === 'article'">
       <label class="title-field">
         Title
         <input
@@ -430,6 +625,61 @@ function submit() {
           profile="article"
           :placeholder="articleBodyPlaceholder"
           :show-hint="false"
+        />
+      </label>
+    </template>
+
+    <template v-else>
+      <label class="quote-field">
+        Source URL
+        <input
+          v-model="quoteSourceUrl"
+          type="url"
+          class="quote-input"
+          placeholder="https://example.com/article"
+          autocomplete="off"
+          required
+          @blur="onSourceUrlBlur"
+        />
+      </label>
+      <label class="quote-field">
+        Link title <span class="quote-field-hint">(the published link text — leave blank to use the source's domain name)</span>
+        <input
+          v-model="quoteLinkTitle"
+          type="text"
+          class="quote-input"
+          :disabled="quoteTitleFetching"
+          :placeholder="quoteTitleFetching ? 'Fetching title…' : 'Auto-fetched from the source URL'"
+          autocomplete="off"
+        />
+      </label>
+      <label class="quote-field">
+        Excerpt
+        <textarea
+          v-model="quoteExcerpt"
+          class="quote-textarea"
+          rows="4"
+          placeholder="The quoted text from the source"
+          required
+        ></textarea>
+      </label>
+      <label class="quote-field">
+        Commentary <span class="quote-field-hint">(optional)</span>
+        <textarea
+          v-model="quoteCommentary"
+          class="quote-textarea"
+          rows="4"
+          placeholder="Your take"
+        ></textarea>
+      </label>
+      <label class="quote-field">
+        Via <span class="quote-field-hint">(optional)</span>
+        <input
+          v-model="quoteVia"
+          type="text"
+          class="quote-input"
+          placeholder="Who pointed you to this"
+          autocomplete="off"
         />
       </label>
     </template>
@@ -628,6 +878,34 @@ label {
   color: var(--text);
 }
 .article-title-input:focus {
+  outline: 2px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  border-color: var(--accent);
+}
+.quote-field {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.quote-field-hint {
+  font-weight: 400;
+  opacity: 0.8;
+}
+.quote-input,
+.quote-textarea {
+  font: inherit;
+  font-size: 0.95rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  resize: vertical;
+}
+.quote-input:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+.quote-input:focus,
+.quote-textarea:focus {
   outline: 2px solid color-mix(in srgb, var(--accent) 35%, transparent);
   border-color: var(--accent);
 }

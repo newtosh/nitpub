@@ -131,6 +131,37 @@ func TestServeSiteAnalyticsFlag(t *testing.T) {
 	}
 }
 
+func TestServeSiteQuotePostsFlag(t *testing.T) {
+	h, _ := testSiteHandler(t)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/site", nil)
+	rec := httptest.NewRecorder()
+	h.ServeSite(rec, req)
+	var off struct {
+		QuotePostsEnabled bool `json:"quote_posts_enabled"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&off); err != nil {
+		t.Fatal(err)
+	}
+	if off.QuotePostsEnabled {
+		t.Fatal("quote_posts_enabled should be false by default")
+	}
+
+	h.quotePostsEnabled = true
+	req = httptest.NewRequest(http.MethodGet, "/api/site", nil)
+	rec = httptest.NewRecorder()
+	h.ServeSite(rec, req)
+	var on struct {
+		QuotePostsEnabled bool `json:"quote_posts_enabled"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&on); err != nil {
+		t.Fatal(err)
+	}
+	if !on.QuotePostsEnabled {
+		t.Fatal("quote_posts_enabled should be true after enabling")
+	}
+}
+
 func TestServeSitePage(t *testing.T) {
 	h, _ := testSiteHandler(t)
 	req := httptest.NewRequest(http.MethodGet, "/api/site/pages/about", nil)
