@@ -22,7 +22,7 @@ func TestCreatePostRequiresAuth(t *testing.T) {
 	defer st.Close()
 
 	ob := outbox.New(st, "http://example.test", "http://example.test/actor")
-	h := NewHandler(ob, testAuthUnconfigured(t, st), nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false)
+	h := NewHandler(ob, testAuthUnconfigured(t, st), nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false, false)
 
 	body := bytes.NewBufferString(`{"kind":"note","content":"hi"}`)
 	req := httptest.NewRequest(http.MethodPost, "/api/posts", body)
@@ -43,7 +43,7 @@ func TestCreatePostAuthenticated(t *testing.T) {
 
 	ob := outbox.New(st, "http://example.test", "http://example.test/actor")
 	auth, sid := testAuth(t, st)
-	h := NewHandler(ob, auth, nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false)
+	h := NewHandler(ob, auth, nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false, false)
 
 	body := bytes.NewBufferString(`{"kind":"note","content":"hello"}`)
 	req := httptest.NewRequest(http.MethodPost, "/api/posts", body)
@@ -75,7 +75,7 @@ func TestCreatePostSkipsFederationWhenDisabled(t *testing.T) {
 	h := NewHandler(ob, auth, nil, nil, nil, nil, func(activity any) error {
 		t.Fatal("deliver should not run when federate=false")
 		return nil
-	}, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false)
+	}, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false, false)
 
 	federate := false
 	body, _ := json.Marshal(map[string]any{
@@ -109,7 +109,7 @@ func TestMalformedBody(t *testing.T) {
 
 	ob := outbox.New(st, "http://example.test", "http://example.test/actor")
 	auth, sid := testAuth(t, st)
-	h := NewHandler(ob, auth, nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false)
+	h := NewHandler(ob, auth, nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false, false)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/posts", bytes.NewBufferString("not json"))
 	req.AddCookie(&http.Cookie{Name: sessionCookie, Value: sid})
@@ -129,7 +129,7 @@ func TestGetPostPublic(t *testing.T) {
 	defer st.Close()
 
 	ob := outbox.New(st, "http://example.test", "http://example.test/actor")
-	h := NewHandler(ob, testAuthUnconfigured(t, st), nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false)
+	h := NewHandler(ob, testAuthUnconfigured(t, st), nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false, false)
 
 	created, _, err := ob.CreatePost(outbox.KindNote, "public read")
 	if err != nil {
@@ -154,7 +154,7 @@ func TestServePostObjectReturnsActivityJSON(t *testing.T) {
 	defer st.Close()
 
 	ob := outbox.New(st, "http://example.test", "http://example.test/actor")
-	h := NewHandler(ob, testAuthUnconfigured(t, st), nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false)
+	h := NewHandler(ob, testAuthUnconfigured(t, st), nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false, false)
 
 	created, _, err := ob.CreatePost(outbox.KindNote, "dereference me")
 	if err != nil {
@@ -190,7 +190,7 @@ func TestServePostObjectDraftNotFound(t *testing.T) {
 	defer st.Close()
 
 	ob := outbox.New(st, "http://example.test", "http://example.test/actor")
-	h := NewHandler(ob, testAuthUnconfigured(t, st), nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false)
+	h := NewHandler(ob, testAuthUnconfigured(t, st), nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false, false)
 
 	draft, err := ob.SaveDraft(outbox.KindNote, "", "still drafting", "")
 	if err != nil {
@@ -216,7 +216,7 @@ func TestGetPostMissing(t *testing.T) {
 	defer st.Close()
 
 	ob := outbox.New(st, "http://example.test", "http://example.test/actor")
-	h := NewHandler(ob, testAuthUnconfigured(t, st), nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false)
+	h := NewHandler(ob, testAuthUnconfigured(t, st), nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false, false)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/posts/nope", nil)
 	req.SetPathValue("id", "nope")
@@ -237,7 +237,7 @@ func TestUpdatePostAuthenticated(t *testing.T) {
 
 	ob := outbox.New(st, "http://example.test", "http://example.test/actor")
 	auth, sid := testAuth(t, st)
-	h := NewHandler(ob, auth, nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false)
+	h := NewHandler(ob, auth, nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false, false)
 
 	created, _, err := ob.CreatePost(outbox.KindNote, "before")
 	if err != nil {
@@ -272,7 +272,7 @@ func TestUpdatePostRequiresAuth(t *testing.T) {
 	defer st.Close()
 
 	ob := outbox.New(st, "http://example.test", "http://example.test/actor")
-	h := NewHandler(ob, testAuthUnconfigured(t, st), nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false)
+	h := NewHandler(ob, testAuthUnconfigured(t, st), nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false, false)
 
 	req := httptest.NewRequest(http.MethodPut, "/api/posts/abc", bytes.NewBufferString(`{"kind":"note","content":"x"}`))
 	req.SetPathValue("id", "abc")
@@ -280,6 +280,228 @@ func TestUpdatePostRequiresAuth(t *testing.T) {
 	h.GetPost(rec, req)
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d", rec.Code)
+	}
+}
+
+// --- Quote post gating (U3, R1/R2/R6) ---
+
+func TestCreatePostQuoteFlagOnSucceeds(t *testing.T) {
+	dir := t.TempDir()
+	st, err := store.Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	ob := outbox.New(st, "http://example.test", "http://example.test/actor")
+	auth, sid := testAuth(t, st)
+	h := NewHandler(ob, auth, nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false, true)
+
+	body := bytes.NewBufferString(`{"kind":"quote","source_url":"https://example.com/article","excerpt":"a great quote","commentary":"my take","via":"@someone"}`)
+	req := httptest.NewRequest(http.MethodPost, "/api/posts", body)
+	req.AddCookie(&http.Cookie{Name: sessionCookie, Value: sid})
+	rec := httptest.NewRecorder()
+	h.ServePosts(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	var post outbox.Post
+	if err := json.NewDecoder(rec.Body).Decode(&post); err != nil {
+		t.Fatal(err)
+	}
+	if post.Kind != outbox.KindQuote {
+		t.Fatalf("kind = %q", post.Kind)
+	}
+	if !strings.Contains(post.Content, "a great quote") || !strings.Contains(post.Content, "my take") || !strings.Contains(post.Content, "@someone") {
+		t.Fatalf("content = %q", post.Content)
+	}
+	if post.Quote == nil || post.Quote.SourceURL != "https://example.com/article" {
+		t.Fatalf("quote fields not stored: %+v", post.Quote)
+	}
+}
+
+func TestCreatePostQuoteFlagOffForbidden(t *testing.T) {
+	dir := t.TempDir()
+	st, err := store.Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	ob := outbox.New(st, "http://example.test", "http://example.test/actor")
+	auth, sid := testAuth(t, st)
+	h := NewHandler(ob, auth, nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false, false)
+
+	body := bytes.NewBufferString(`{"kind":"quote","source_url":"https://example.com/article","excerpt":"a great quote"}`)
+	req := httptest.NewRequest(http.MethodPost, "/api/posts", body)
+	req.AddCookie(&http.Cookie{Name: sessionCookie, Value: sid})
+	rec := httptest.NewRecorder()
+	h.ServePosts(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	posts, err := ob.ListPostsForAuthor()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(posts) != 0 {
+		t.Fatalf("expected no post created, got %d", len(posts))
+	}
+}
+
+func TestCreatePostQuoteMissingSourceURLBadRequest(t *testing.T) {
+	dir := t.TempDir()
+	st, err := store.Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	ob := outbox.New(st, "http://example.test", "http://example.test/actor")
+	auth, sid := testAuth(t, st)
+	h := NewHandler(ob, auth, nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false, true)
+
+	body := bytes.NewBufferString(`{"kind":"quote","excerpt":"a great quote"}`)
+	req := httptest.NewRequest(http.MethodPost, "/api/posts", body)
+	req.AddCookie(&http.Cookie{Name: sessionCookie, Value: sid})
+	rec := httptest.NewRecorder()
+	h.ServePosts(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+// TestCreatePostQuotePassesClientSuppliedFieldsThrough covers the case
+// where the client already ran its own auto-fetch and sends fully-formed
+// excerpt/commentary — the API takes the request fields as-is, it doesn't
+// care whether they came from auto-fetch or manual entry.
+func TestCreatePostQuotePassesClientSuppliedFieldsThrough(t *testing.T) {
+	dir := t.TempDir()
+	st, err := store.Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	ob := outbox.New(st, "http://example.test", "http://example.test/actor")
+	auth, sid := testAuth(t, st)
+	h := NewHandler(ob, auth, nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false, true)
+
+	body := bytes.NewBufferString(`{"kind":"quote","source_url":"https://example.com/manual","excerpt":"manually typed excerpt"}`)
+	req := httptest.NewRequest(http.MethodPost, "/api/posts", body)
+	req.AddCookie(&http.Cookie{Name: sessionCookie, Value: sid})
+	rec := httptest.NewRecorder()
+	h.ServePosts(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	var post outbox.Post
+	if err := json.NewDecoder(rec.Body).Decode(&post); err != nil {
+		t.Fatal(err)
+	}
+	if post.Quote == nil || post.Quote.Excerpt != "manually typed excerpt" {
+		t.Fatalf("excerpt not passed through as-is: %+v", post.Quote)
+	}
+}
+
+func TestUpdatePostQuoteFlagOnSucceeds(t *testing.T) {
+	dir := t.TempDir()
+	st, err := store.Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	ob := outbox.New(st, "http://example.test", "http://example.test/actor")
+	auth, sid := testAuth(t, st)
+	h := NewHandler(ob, auth, nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false, true)
+
+	created, _, err := ob.CreatePost(outbox.KindNote, "before")
+	if err != nil {
+		t.Fatal(err)
+	}
+	slug := outbox.PostSlug(created.ID)
+
+	body := bytes.NewBufferString(`{"kind":"quote","source_url":"https://example.com/x","excerpt":"quoted text"}`)
+	req := httptest.NewRequest(http.MethodPut, "/api/posts/"+slug, body)
+	req.SetPathValue("id", slug)
+	req.AddCookie(&http.Cookie{Name: sessionCookie, Value: sid})
+	rec := httptest.NewRecorder()
+	h.GetPost(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	var post outbox.Post
+	if err := json.NewDecoder(rec.Body).Decode(&post); err != nil {
+		t.Fatal(err)
+	}
+	if post.Kind != outbox.KindQuote || post.Quote == nil || post.Quote.SourceURL != "https://example.com/x" {
+		t.Fatalf("post not updated to quote: %+v", post)
+	}
+}
+
+func TestUpdatePostQuoteFlagOffForbidden(t *testing.T) {
+	dir := t.TempDir()
+	st, err := store.Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	ob := outbox.New(st, "http://example.test", "http://example.test/actor")
+	auth, sid := testAuth(t, st)
+	h := NewHandler(ob, auth, nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false, false)
+
+	created, _, err := ob.CreatePost(outbox.KindNote, "before")
+	if err != nil {
+		t.Fatal(err)
+	}
+	slug := outbox.PostSlug(created.ID)
+
+	body := bytes.NewBufferString(`{"kind":"quote","source_url":"https://example.com/x","excerpt":"quoted text"}`)
+	req := httptest.NewRequest(http.MethodPut, "/api/posts/"+slug, body)
+	req.SetPathValue("id", slug)
+	req.AddCookie(&http.Cookie{Name: sessionCookie, Value: sid})
+	rec := httptest.NewRecorder()
+	h.GetPost(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	post, err := ob.GetPost(slug)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if post.Kind != outbox.KindNote {
+		t.Fatalf("expected post untouched, kind = %q", post.Kind)
+	}
+}
+
+func TestUpdatePostQuoteMissingSourceURLBadRequest(t *testing.T) {
+	dir := t.TempDir()
+	st, err := store.Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	ob := outbox.New(st, "http://example.test", "http://example.test/actor")
+	auth, sid := testAuth(t, st)
+	h := NewHandler(ob, auth, nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false, true)
+
+	created, _, err := ob.CreatePost(outbox.KindNote, "before")
+	if err != nil {
+		t.Fatal(err)
+	}
+	slug := outbox.PostSlug(created.ID)
+
+	body := bytes.NewBufferString(`{"kind":"quote","excerpt":"quoted text"}`)
+	req := httptest.NewRequest(http.MethodPut, "/api/posts/"+slug, body)
+	req.SetPathValue("id", slug)
+	req.AddCookie(&http.Cookie{Name: sessionCookie, Value: sid})
+	rec := httptest.NewRecorder()
+	h.GetPost(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
 	}
 }
 
@@ -292,7 +514,7 @@ func TestServeFeed(t *testing.T) {
 	defer st.Close()
 
 	ob := outbox.New(st, "http://example.test", "http://example.test/actor")
-	h := NewHandler(ob, testAuthUnconfigured(t, st), nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false)
+	h := NewHandler(ob, testAuthUnconfigured(t, st), nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false, false)
 	if _, _, err := ob.CreatePost(outbox.KindNote, "feed item"); err != nil {
 		t.Fatal(err)
 	}
@@ -337,7 +559,7 @@ func TestSearchIndexExcludesDraft(t *testing.T) {
 	}
 	searchIdx.Rebuild(posts, nil)
 
-	h := NewHandler(ob, testAuthUnconfigured(t, st), nil, nil, searchIdx, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false)
+	h := NewHandler(ob, testAuthUnconfigured(t, st), nil, nil, searchIdx, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false, false)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/search?q=uniquekeyword", nil)
 	rec := httptest.NewRecorder()
@@ -363,7 +585,7 @@ func TestServeFeedExcludesDraft(t *testing.T) {
 	defer st.Close()
 
 	ob := outbox.New(st, "http://example.test", "http://example.test/actor")
-	h := NewHandler(ob, testAuthUnconfigured(t, st), nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false)
+	h := NewHandler(ob, testAuthUnconfigured(t, st), nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false, false)
 	if _, _, err := ob.CreatePost(outbox.KindNote, "feed item"); err != nil {
 		t.Fatal(err)
 	}
@@ -396,7 +618,7 @@ func TestListPostsExcludesDraftUnauthenticatedIncludesAuthenticated(t *testing.T
 
 	ob := outbox.New(st, "http://example.test", "http://example.test/actor")
 	auth, sid := testAuth(t, st)
-	h := NewHandler(ob, auth, nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false)
+	h := NewHandler(ob, auth, nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false, false)
 
 	if _, err := ob.SaveDraft(outbox.KindNote, "", "a draft", ""); err != nil {
 		t.Fatal(err)
@@ -439,7 +661,7 @@ func TestGetPostDraftUnauthenticated404AuthenticatedFound(t *testing.T) {
 
 	ob := outbox.New(st, "http://example.test", "http://example.test/actor")
 	auth, sid := testAuth(t, st)
-	h := NewHandler(ob, auth, nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false)
+	h := NewHandler(ob, auth, nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false, false)
 
 	draft, err := ob.SaveDraft(outbox.KindNote, "", "shh, still drafting", "")
 	if err != nil {
@@ -474,7 +696,7 @@ func TestSaveDraftRequiresAuth(t *testing.T) {
 	defer st.Close()
 
 	ob := outbox.New(st, "http://example.test", "http://example.test/actor")
-	h := NewHandler(ob, testAuthUnconfigured(t, st), nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false)
+	h := NewHandler(ob, testAuthUnconfigured(t, st), nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false, false)
 
 	body := bytes.NewBufferString(`{"kind":"note","content":"x"}`)
 	req := httptest.NewRequest(http.MethodPost, "/api/posts/drafts", body)
@@ -495,7 +717,7 @@ func TestSaveDraftAuthenticatedCreatesThenUpdatesInPlace(t *testing.T) {
 
 	ob := outbox.New(st, "http://example.test", "http://example.test/actor")
 	auth, sid := testAuth(t, st)
-	h := NewHandler(ob, auth, nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false)
+	h := NewHandler(ob, auth, nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false, false)
 
 	body := bytes.NewBufferString(`{"kind":"note","content":"first pass"}`)
 	req := httptest.NewRequest(http.MethodPost, "/api/posts/drafts", body)
@@ -549,7 +771,7 @@ func TestPublishDraftEndpointTransitionsAndReindexes(t *testing.T) {
 	ob := outbox.New(st, "http://example.test", "http://example.test/actor")
 	auth, sid := testAuth(t, st)
 	reindexed := false
-	h := NewHandler(ob, auth, nil, nil, nil, func() { reindexed = true }, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false)
+	h := NewHandler(ob, auth, nil, nil, nil, func() { reindexed = true }, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false, false)
 
 	draft, err := ob.SaveDraft(outbox.KindNote, "", "ready to publish", "")
 	if err != nil {
@@ -588,7 +810,7 @@ func TestPublishDraftEndpointRejectsEmptyContent(t *testing.T) {
 
 	ob := outbox.New(st, "http://example.test", "http://example.test/actor")
 	auth, sid := testAuth(t, st)
-	h := NewHandler(ob, auth, nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false)
+	h := NewHandler(ob, auth, nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false, false)
 
 	draft, err := ob.SaveDraft(outbox.KindNote, "title-only note draft", "", "")
 	if err != nil {

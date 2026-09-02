@@ -20,7 +20,7 @@ func TestAdminGetAnalyticsRequiresAuth(t *testing.T) {
 	defer st.Close()
 
 	ob := outbox.New(st, "http://example.test", "http://example.test/actor")
-	h := NewHandler(ob, testAuthUnconfigured(t, st), nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "nit", nil, nil, "", true)
+	h := NewHandler(ob, testAuthUnconfigured(t, st), nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "nit", nil, nil, "", true, false)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/admin/analytics", nil)
 	rec := httptest.NewRecorder()
@@ -41,7 +41,7 @@ func TestAdminGetAnalyticsDisabled(t *testing.T) {
 	ob := outbox.New(st, "http://example.test", "http://example.test/actor")
 	auth, sid := testAuth(t, st)
 	// analyticsEnabled=false and no SetAnalytics call: h.analytics stays nil.
-	h := NewHandler(ob, auth, nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "nit", nil, nil, "", false)
+	h := NewHandler(ob, auth, nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "nit", nil, nil, "", false, false)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/admin/analytics", nil)
 	req.AddCookie(&http.Cookie{Name: sessionCookie, Value: sid})
@@ -73,7 +73,7 @@ func TestAdminGetAnalyticsEnabled(t *testing.T) {
 
 	ob := outbox.New(st, "http://example.test", "http://example.test/actor")
 	auth, sid := testAuth(t, st)
-	h := NewHandler(ob, auth, nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "nit", nil, nil, "", true)
+	h := NewHandler(ob, auth, nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "nit", nil, nil, "", true, false)
 	h.SetAnalytics(analytics.New(upstream.URL, "tok", ""))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/admin/analytics", nil)
@@ -108,7 +108,7 @@ func TestAdminGetAnalyticsIncludesGoatCounterURL(t *testing.T) {
 
 	ob := outbox.New(st, "http://example.test", "http://example.test/actor")
 	auth, sid := testAuth(t, st)
-	h := NewHandler(ob, auth, nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "nit", nil, nil, "", true)
+	h := NewHandler(ob, auth, nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "nit", nil, nil, "", true, false)
 	h.SetAnalytics(analytics.New(upstream.URL, "tok", ""))
 	h.SetAnalyticsPublicURL("https://stats.example.test")
 
@@ -146,7 +146,7 @@ func TestAdminGetAnalyticsOmitsGoatCounterURLWhenUnset(t *testing.T) {
 
 	ob := outbox.New(st, "http://example.test", "http://example.test/actor")
 	auth, sid := testAuth(t, st)
-	h := NewHandler(ob, auth, nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "nit", nil, nil, "", true)
+	h := NewHandler(ob, auth, nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "nit", nil, nil, "", true, false)
 	h.SetAnalytics(analytics.New(upstream.URL, "tok", ""))
 	// SetAnalyticsPublicURL deliberately not called: no link configured.
 
@@ -188,7 +188,7 @@ func TestAdminGetAnalyticsWindowParam(t *testing.T) {
 
 	ob := outbox.New(st, "http://example.test", "http://example.test/actor")
 	auth, sid := testAuth(t, st)
-	h := NewHandler(ob, auth, nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "nit", nil, nil, "", true)
+	h := NewHandler(ob, auth, nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "nit", nil, nil, "", true, false)
 	h.SetAnalytics(analytics.New(upstream.URL, "tok", ""))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/admin/analytics?window=24h", nil)
@@ -218,7 +218,7 @@ func TestAdminGetAnalyticsUpstreamError(t *testing.T) {
 
 	ob := outbox.New(st, "http://example.test", "http://example.test/actor")
 	auth, sid := testAuth(t, st)
-	h := NewHandler(ob, auth, nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "nit", nil, nil, "", true)
+	h := NewHandler(ob, auth, nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "nit", nil, nil, "", true, false)
 	h.SetAnalytics(analytics.New(upstream.URL, "tok", ""))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/admin/analytics", nil)

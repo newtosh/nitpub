@@ -67,7 +67,7 @@ file = "pages/about.md"
 		idx.Rebuild(posts, pages)
 	}
 	auth, sid := testAuth(t, st)
-	h := NewHandler(ob, auth, nil, siteSvc, idx, rebuild, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false)
+	h := NewHandler(ob, auth, nil, siteSvc, idx, rebuild, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false, false)
 	return h, sid
 }
 
@@ -178,7 +178,7 @@ func TestListPostsPaginated(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	h := NewHandler(ob, testAuthUnconfigured(t, st), nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false)
+	h := NewHandler(ob, testAuthUnconfigured(t, st), nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false, false)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/posts?limit=5&offset=0", nil)
 	rec := httptest.NewRecorder()

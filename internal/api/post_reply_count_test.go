@@ -21,7 +21,7 @@ func TestGetPostIncludesApprovedReplyCount(t *testing.T) {
 
 	ob := outbox.New(st, "http://example.test", "http://example.test/actor")
 	mod := moderation.New(st)
-	h := NewHandler(ob, testAuthUnconfigured(t, st), nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, mod, "", false)
+	h := NewHandler(ob, testAuthUnconfigured(t, st), nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, mod, "", false, false)
 
 	created, _, err := ob.CreatePost(outbox.KindNote, "public read")
 	if err != nil {
@@ -68,7 +68,7 @@ func TestGetPostReplyCountZeroWhenNoModeration(t *testing.T) {
 
 	ob := outbox.New(st, "http://example.test", "http://example.test/actor")
 	// mod intentionally omitted (nil) -- must not error, just reply_count=0.
-	h := NewHandler(ob, testAuthUnconfigured(t, st), nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false)
+	h := NewHandler(ob, testAuthUnconfigured(t, st), nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false, false)
 
 	created, _, err := ob.CreatePost(outbox.KindNote, "no moderation configured")
 	if err != nil {
@@ -105,7 +105,7 @@ func TestListPostsIncludesApprovedReplyCount(t *testing.T) {
 
 	ob := outbox.New(st, "http://example.test", "http://example.test/actor")
 	mod := moderation.New(st)
-	h := NewHandler(ob, testAuthUnconfigured(t, st), nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, mod, "", false)
+	h := NewHandler(ob, testAuthUnconfigured(t, st), nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, mod, "", false, false)
 
 	created, _, err := ob.CreatePost(outbox.KindNote, "list me")
 	if err != nil {
@@ -144,7 +144,7 @@ func TestListPostsPaginatedIncludesApprovedReplyCount(t *testing.T) {
 
 	ob := outbox.New(st, "http://example.test", "http://example.test/actor")
 	mod := moderation.New(st)
-	h := NewHandler(ob, testAuthUnconfigured(t, st), nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, mod, "", false)
+	h := NewHandler(ob, testAuthUnconfigured(t, st), nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, mod, "", false, false)
 
 	created, _, err := ob.CreatePost(outbox.KindNote, "list me paginated")
 	if err != nil {
