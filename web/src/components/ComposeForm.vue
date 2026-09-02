@@ -74,6 +74,7 @@ const quoteLinkTitle = ref('')
 const quoteTitleFetching = ref(false)
 const baselineQuote = ref<{
   sourceUrl: string
+  title: string
   excerpt: string
   commentary: string
   via: string
@@ -159,6 +160,7 @@ const isDirty = computed(() => {
     return (
       kind.value !== 'quote' ||
       quoteSourceUrl.value.trim() !== baselineQuote.value.sourceUrl ||
+      quoteLinkTitle.value.trim() !== baselineQuote.value.title ||
       quoteExcerpt.value.trim() !== baselineQuote.value.excerpt ||
       quoteCommentary.value.trim() !== baselineQuote.value.commentary ||
       quoteVia.value.trim() !== baselineQuote.value.via
@@ -222,6 +224,7 @@ function applyPost(post: Post | null | undefined) {
     quoteLinkTitle.value = post.quote?.title ?? ''
     baselineQuote.value = {
       sourceUrl: quoteSourceUrl.value,
+      title: quoteLinkTitle.value,
       excerpt: quoteExcerpt.value,
       commentary: quoteCommentary.value,
       via: quoteVia.value,
@@ -276,6 +279,7 @@ function markSaved() {
   if (kind.value === 'quote') {
     baselineQuote.value = {
       sourceUrl: quoteSourceUrl.value.trim(),
+      title: quoteLinkTitle.value.trim(),
       excerpt: quoteExcerpt.value.trim(),
       commentary: quoteCommentary.value.trim(),
       via: quoteVia.value.trim(),
@@ -295,6 +299,7 @@ function discardChanges() {
   if (!props.post) return
   if (baselineQuote.value) {
     quoteSourceUrl.value = baselineQuote.value.sourceUrl
+    quoteLinkTitle.value = baselineQuote.value.title
     quoteExcerpt.value = baselineQuote.value.excerpt
     quoteCommentary.value = baselineQuote.value.commentary
     quoteVia.value = baselineQuote.value.via
