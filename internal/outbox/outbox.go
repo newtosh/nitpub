@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"sort"
 	"strings"
 	"time"
@@ -41,6 +42,7 @@ type Kind string
 const (
 	KindNote    Kind = "note"
 	KindArticle Kind = "article"
+	KindQuote   Kind = "quote"
 )
 
 // FederationState records whether a post was shared to ActivityPub followers.
@@ -73,6 +75,57 @@ type Post struct {
 	CreatedAt  time.Time        `json:"created_at"`
 	UpdatedAt  *time.Time       `json:"updated_at,omitempty"`
 	Federation *FederationState `json:"federation,omitempty"`
+	// Quote holds the raw structured input for a KindQuote post, alongside
+	// Content (the same fields composed to canonical markdown by
+	// BuildQuoteContent — KTD1, KTD2). Nil for every other kind.
+	Quote *QuoteFields `json:"quote,omitempty"`
+}
+
+// QuoteFields captures a quote post's structured input: a source link, the
+// quoted excerpt, optional commentary, and an optional via/hat-tip
+// attribution. SourceURL and Excerpt are required (BuildQuoteContent
+// enforces it); Commentary and Via are optional (R2).
+type QuoteFields struct {
+	SourceURL  string `json:"source_url"`
+	Excerpt    string `json:"excerpt"`
+	Commentary string `json:"commentary,omitempty"`
+	Via        string `json:"via,omitempty"`
+}
+
+// BuildQuoteContent composes QuoteFields into the canonical quote-post
+// markdown, in a fixed order so every quote post renders identically (R4,
+// KTD2): a linked source, a blockquoted excerpt, an optional commentary
+// paragraph, and an optional via line. Commentary and Via are omitted
+// entirely when blank — never rendered as an empty line.
+//
+// QuoteFields has no separate link-text field, so the link text is the
+// source URL's host, mirroring the existing "Read more on <host>" link
+// convention in ArticleFederationContentHTML rather than inventing a new
+// one.
+func BuildQuoteContent(f QuoteFields) (string, error) {
+	sourceURL := strings.TrimSpace(f.SourceURL)
+	excerpt := strings.TrimSpace(f.Excerpt)
+	if sourceURL == "" {
+		return "", fmt.Errorf("source URL is required")
+	}
+	if excerpt == "" {
+		return "", fmt.Errorf("excerpt is required")
+	}
+
+	linkText := sourceURL
+	if u, err := url.Parse(sourceURL); err == nil && u.Host != "" {
+		linkText = u.Host
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "[%s](%s)\n\n> %s", linkText, sourceURL, excerpt)
+	if commentary := strings.TrimSpace(f.Commentary); commentary != "" {
+		fmt.Fprintf(&b, "\n\n%s", commentary)
+	}
+	if via := strings.TrimSpace(f.Via); via != "" {
+		fmt.Fprintf(&b, "\n\n(via %s)", via)
+	}
+	return b.String(), nil
 }
 
 // IsDraft reports whether the post is an unpublished draft. An absent/empty
@@ -96,11 +149,26 @@ func New(st *store.Store, baseURL, actorIRI string) *Service {
 func (s *Service) BaseURL() string { return s.baseURL }
 
 func (s *Service) CreatePost(kind Kind, content string) (*Post, *vocab.Create, error) {
+	return s.createPost(kind, content, nil)
+}
+
+// CreateQuotePost composes fields into canonical markdown via
+// BuildQuoteContent, then creates a KindQuote post storing both the
+// composed Content and the raw QuoteFields (KTD1, KTD2).
+func (s *Service) CreateQuotePost(fields QuoteFields) (*Post, *vocab.Create, error) {
+	content, err := BuildQuoteContent(fields)
+	if err != nil {
+		return nil, nil, err
+	}
+	return s.createPost(KindQuote, content, &fields)
+}
+
+func (s *Service) createPost(kind Kind, content string, quote *QuoteFields) (*Post, *vocab.Create, error) {
 	content = strings.TrimSpace(content)
 	if content == "" {
 		return nil, nil, fmt.Errorf("content is required")
 	}
-	if kind != KindNote && kind != KindArticle {
+	if kind != KindNote && kind != KindArticle && kind != KindQuote {
 		return nil, nil, fmt.Errorf("invalid kind %q", kind)
 	}
 	if kind == KindNote {
@@ -110,7 +178,7 @@ func (s *Service) CreatePost(kind Kind, content string) (*Post, *vocab.Create, e
 	}
 
 	id := fmt.Sprintf("%s/posts/%s", s.baseURL, uuid.NewString())
-	post := &Post{ID: id, Kind: kind, Content: content, CreatedAt: time.Now().UTC()}
+	post := &Post{ID: id, Kind: kind, Content: content, Quote: quote, CreatedAt: time.Now().UTC()}
 	activity := s.buildCreateActivity(*post, post.CreatedAt)
 
 	rawPost, err := json.Marshal(post)
@@ -151,7 +219,7 @@ func (s *Service) nativeObject(post *Post) *vocab.Object {
 	// resolvable public status.
 	obj.To = vocab.ItemCollection{vocab.PublicNS}
 
-	if post.Kind == KindNote {
+	if post.Kind == KindNote || post.Kind == KindQuote {
 		html, err := NoteFederationHTML(post.Content)
 		if err != nil {
 			html = mastodonHTMLPolicy.Sanitize(post.Content)
@@ -345,13 +413,21 @@ func (s *Service) lookupPostKeyTx(tx *bolt.Tx, slug string) ([]byte, error) {
 // validations that gate Publish and without touching BucketOutbox (KTD2).
 // existingSlug empty creates a new draft; non-empty updates the existing one
 // in place. Rejects if the target slug is already published (R2).
+//
+// kind == KindQuote is accepted here like any other kind, but SaveDraft
+// intentionally does not run BuildQuoteContent or store QuoteFields — its
+// whole purpose is tolerating incomplete input on every autosave tick, and
+// the composer requires SourceURL/Excerpt to be non-blank. A quote draft is
+// just raw in-progress text like a note/article draft; CreatePost/
+// CreateQuotePost (not this path) compose the canonical markdown once the
+// author actually submits (U1 step 7's chosen option).
 func (s *Service) SaveDraft(kind Kind, title, content, existingSlug string) (*Post, error) {
 	title = strings.TrimSpace(title)
 	content = strings.TrimSpace(content)
 	if title == "" && content == "" {
 		return nil, fmt.Errorf("title or content is required")
 	}
-	if kind != KindNote && kind != KindArticle {
+	if kind != KindNote && kind != KindArticle && kind != KindQuote {
 		return nil, fmt.Errorf("invalid kind %q", kind)
 	}
 
@@ -554,11 +630,26 @@ func (s *Service) GetPublishedObject(slug string) (*vocab.Object, error) {
 
 // UpdatePost changes an existing post's kind and content.
 func (s *Service) UpdatePost(slug string, kind Kind, content string) (*Post, error) {
+	return s.updatePost(slug, kind, content, nil)
+}
+
+// UpdateQuotePost composes fields via BuildQuoteContent and updates an
+// existing post to KindQuote, storing both the composed Content and the raw
+// QuoteFields (KTD1, KTD2).
+func (s *Service) UpdateQuotePost(slug string, fields QuoteFields) (*Post, error) {
+	content, err := BuildQuoteContent(fields)
+	if err != nil {
+		return nil, err
+	}
+	return s.updatePost(slug, KindQuote, content, &fields)
+}
+
+func (s *Service) updatePost(slug string, kind Kind, content string, quote *QuoteFields) (*Post, error) {
 	content = strings.TrimSpace(content)
 	if content == "" {
 		return nil, fmt.Errorf("content is required")
 	}
-	if kind != KindNote && kind != KindArticle {
+	if kind != KindNote && kind != KindArticle && kind != KindQuote {
 		return nil, fmt.Errorf("invalid kind %q", kind)
 	}
 	if kind == KindNote {
@@ -592,6 +683,9 @@ func (s *Service) UpdatePost(slug string, kind Kind, content string) (*Post, err
 		now := time.Now().UTC()
 		updated.Kind = kind
 		updated.Content = content
+		// quote is nil for every non-quote kind, correctly clearing any
+		// stale QuoteFields if a post's kind changes away from quote.
+		updated.Quote = quote
 		updated.UpdatedAt = &now
 		updated.ID = canonicalID
 

@@ -2,9 +2,13 @@ package outbox
 
 import vocab "github.com/go-ap/activitypub"
 
-// FederatedActivity builds the outbound representation per KTD2.
+// FederatedActivity builds the outbound representation per KTD2. KindQuote
+// routes through the same full-content path as KindNote (not the truncated
+// KindArticle excerpt-plus-link shape) so a quote post's federated activity
+// carries its complete composed content — link, blockquote, commentary, via
+// — rather than a truncated summary (KTD6, R4, R5).
 func FederatedActivity(post *Post, create *vocab.Create) (*vocab.Create, error) {
-	if post.Kind == KindNote {
+	if post.Kind == KindNote || post.Kind == KindQuote {
 		return create, nil
 	}
 
