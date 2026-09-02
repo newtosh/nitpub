@@ -3,6 +3,7 @@ import { FileUp, Save, Send, Trash2, X } from '@lucide/vue'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import MarkdownEditor from './MarkdownEditor.vue'
 import ComposeInfoTooltip from './ComposeInfoTooltip.vue'
+import InfoTip from './InfoTip.vue'
 import MastodonIcon from './icons/MastodonIcon.vue'
 import type { Post } from '../lib/posts'
 import { postSlug } from '../lib/posts'
@@ -641,9 +642,10 @@ function submit() {
           @blur="onSourceUrlBlur"
         />
       </label>
-      <label class="quote-field">
-        Link title <span class="quote-field-hint">(the published link text — leave blank to use the source's domain name)</span>
+      <label class="quote-field" for="quote-link-title">
+        <span class="quote-field-label">Link title <InfoTip label="The published link text — leave blank to use the source's domain name." /></span>
         <input
+          id="quote-link-title"
           v-model="quoteLinkTitle"
           type="text"
           class="quote-input"
@@ -662,18 +664,20 @@ function submit() {
           required
         ></textarea>
       </label>
-      <label class="quote-field">
-        Commentary <span class="quote-field-hint">(optional)</span>
+      <label class="quote-field" for="quote-commentary">
+        <span class="quote-field-label">Commentary <InfoTip label="Optional — your own take on the quote." /></span>
         <textarea
+          id="quote-commentary"
           v-model="quoteCommentary"
           class="quote-textarea"
           rows="4"
           placeholder="Your take"
         ></textarea>
       </label>
-      <label class="quote-field">
-        Via <span class="quote-field-hint">(optional)</span>
+      <label class="quote-field" for="quote-via">
+        <span class="quote-field-label">Via <InfoTip label="Optional — who pointed you to this, for a hat-tip." /></span>
         <input
+          id="quote-via"
           v-model="quoteVia"
           type="text"
           class="quote-input"
@@ -880,11 +884,10 @@ label {
   outline: 2px solid color-mix(in srgb, var(--accent) 35%, transparent);
   border-color: var(--accent);
 }
-.quote-field-hint {
-  font-weight: 400;
-  font-size: 0.85rem;
-  color: var(--muted);
-  opacity: 0.8;
+.quote-field-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
 }
 .quote-input,
 .quote-textarea {
