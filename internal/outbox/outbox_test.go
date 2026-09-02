@@ -2,6 +2,7 @@ package outbox
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -721,5 +722,295 @@ func TestSaveDraftRejectsAlreadyPublished(t *testing.T) {
 	slug := PostSlug(published.ID)
 	if _, err := svc.SaveDraft(KindNote, "", "trying to draft-save a live post", slug); err == nil {
 		t.Fatal("expected error saving a draft against a published slug")
+	}
+}
+
+// TestBuildQuoteContentGolden locks the composed markdown shape (R4, KTD2):
+// linked source, blockquoted excerpt, commentary, then via, each on its own
+// paragraph with no stray blank lines.
+func TestBuildQuoteContentGolden(t *testing.T) {
+	fields := QuoteFields{
+		SourceURL:  "https://example.com/article",
+		Excerpt:    "The excerpt text.",
+		Commentary: "My take on this.",
+		Via:        "Some Friend",
+	}
+	got, err := BuildQuoteContent(fields)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "[example.com](https://example.com/article)\n\n> The excerpt text.\n\nMy take on this.\n\n(via Some Friend)"
+	if got != want {
+		t.Fatalf("BuildQuoteContent =\n%q\nwant\n%q", got, want)
+	}
+}
+
+func TestBuildQuoteContentOmitsBlankCommentary(t *testing.T) {
+	fields := QuoteFields{
+		SourceURL: "https://example.com/article",
+		Excerpt:   "The excerpt text.",
+		Via:       "Some Friend",
+	}
+	got, err := BuildQuoteContent(fields)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "[example.com](https://example.com/article)\n\n> The excerpt text.\n\n(via Some Friend)"
+	if got != want {
+		t.Fatalf("BuildQuoteContent =\n%q\nwant\n%q", got, want)
+	}
+	if strings.Contains(got, "\n\n\n") {
+		t.Fatal("expected no stray blank lines when commentary is blank")
+	}
+}
+
+func TestBuildQuoteContentOmitsBlankVia(t *testing.T) {
+	fields := QuoteFields{
+		SourceURL:  "https://example.com/article",
+		Excerpt:    "The excerpt text.",
+		Commentary: "My take on this.",
+	}
+	got, err := BuildQuoteContent(fields)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "[example.com](https://example.com/article)\n\n> The excerpt text.\n\nMy take on this."
+	if got != want {
+		t.Fatalf("BuildQuoteContent =\n%q\nwant\n%q", got, want)
+	}
+	if strings.Contains(got, "via") {
+		t.Fatal("expected no via line when Via is blank")
+	}
+}
+
+func TestBuildQuoteContentRequiresSourceURL(t *testing.T) {
+	_, err := BuildQuoteContent(QuoteFields{Excerpt: "text"})
+	if err == nil {
+		t.Fatal("expected error for missing SourceURL")
+	}
+}
+
+func TestBuildQuoteContentRequiresExcerpt(t *testing.T) {
+	_, err := BuildQuoteContent(QuoteFields{SourceURL: "https://example.com"})
+	if err == nil {
+		t.Fatal("expected error for missing Excerpt")
+	}
+}
+
+func TestCreateQuotePost(t *testing.T) {
+	dir := t.TempDir()
+	st, err := store.Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	svc := New(st, "http://example.test", "http://example.test/actor")
+	fields := QuoteFields{
+		SourceURL: "https://example.com/article",
+		Excerpt:   "The excerpt text.",
+		Via:       "Some Friend",
+	}
+	post, create, err := svc.CreateQuotePost(fields)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if post.Kind != KindQuote {
+		t.Fatalf("kind = %q", post.Kind)
+	}
+	if post.Quote == nil || *post.Quote != fields {
+		t.Fatalf("Quote = %#v, want %#v", post.Quote, fields)
+	}
+	wantContent, _ := BuildQuoteContent(fields)
+	if post.Content != wantContent {
+		t.Fatalf("Content = %q, want %q", post.Content, wantContent)
+	}
+
+	// Regression: kind "quote" is accepted, not rejected as invalid.
+	fed, err := FederatedActivity(post, create)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = vocab.OnObject(fed.Object, func(o *vocab.Object) error {
+		if o.Type != vocab.NoteType {
+			t.Fatalf("federated type = %q, want Note", o.Type)
+		}
+		return nil
+	})
+}
+
+func TestCreateQuotePostRejectsMissingFields(t *testing.T) {
+	dir := t.TempDir()
+	st, err := store.Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	svc := New(st, "http://example.test", "http://example.test/actor")
+	if _, _, err := svc.CreateQuotePost(QuoteFields{Excerpt: "text only"}); err == nil {
+		t.Fatal("expected error for missing SourceURL")
+	}
+}
+
+func TestUpdateQuotePost(t *testing.T) {
+	dir := t.TempDir()
+	st, err := store.Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	svc := New(st, "http://example.test", "http://example.test/actor")
+	post, _, err := svc.CreatePost(KindNote, "a plain note")
+	if err != nil {
+		t.Fatal(err)
+	}
+	slug := PostSlug(post.ID)
+
+	fields := QuoteFields{
+		SourceURL:  "https://example.com/updated",
+		Excerpt:    "Updated excerpt.",
+		Commentary: "Updated take.",
+	}
+	updated, err := svc.UpdateQuotePost(slug, fields)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.Kind != KindQuote {
+		t.Fatalf("kind = %q", updated.Kind)
+	}
+	if updated.Quote == nil || *updated.Quote != fields {
+		t.Fatalf("Quote = %#v, want %#v", updated.Quote, fields)
+	}
+}
+
+// TestSaveDraftAcceptsQuoteKind is the draft-save leg of the "kind quote
+// isn't rejected as invalid" regression coverage — SaveDraft tolerates
+// partial content for any kind, including quote, without running the
+// composer's strict validation (U1 step 7).
+func TestSaveDraftAcceptsQuoteKind(t *testing.T) {
+	dir := t.TempDir()
+	st, err := store.Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	svc := New(st, "http://example.test", "http://example.test/actor")
+	post, err := svc.SaveDraft(KindQuote, "", "still drafting the quote", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if post.Kind != KindQuote {
+		t.Fatalf("kind = %q", post.Kind)
+	}
+	if !post.IsDraft() {
+		t.Fatal("expected draft status")
+	}
+	if post.Quote != nil {
+		t.Fatal("expected SaveDraft not to populate QuoteFields")
+	}
+}
+
+// TestPublishDraftAcceptsQuoteKind is the publish-draft leg of the
+// regression coverage: a quote-kind draft (raw content, no QuoteFields) can
+// be published like any other kind.
+func TestPublishDraftAcceptsQuoteKind(t *testing.T) {
+	dir := t.TempDir()
+	st, err := store.Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	svc := New(st, "http://example.test", "http://example.test/actor")
+	draft, err := svc.SaveDraft(KindQuote, "", "[example.com](https://example.com)\n\n> text", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	slug := PostSlug(draft.ID)
+	published, _, err := svc.PublishDraft(slug)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if published.IsDraft() {
+		t.Fatal("expected published post to no longer be a draft")
+	}
+	if published.Kind != KindQuote {
+		t.Fatalf("kind = %q", published.Kind)
+	}
+}
+
+// TestQuotePostFederatesFullContentSanitized covers KTD6/U1 step 6: a
+// KindQuote post's serialized ActivityPub object carries sanitized HTML
+// (not raw markdown), and the federated activity body carries the full
+// composed content rather than a truncated excerpt-plus-link (the KindArticle
+// shape).
+func TestQuotePostFederatesFullContentSanitized(t *testing.T) {
+	dir := t.TempDir()
+	st, err := store.Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	svc := New(st, "http://example.test", "http://example.test/actor")
+	fields := QuoteFields{
+		SourceURL:  "https://example.com/article",
+		Excerpt:    "The excerpt text.",
+		Commentary: "My commentary paragraph.",
+		Via:        "Some Friend",
+	}
+	post, create, err := svc.CreateQuotePost(fields)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// The native object (what GetPublishedObject serves) must carry
+	// sanitized HTML, not the raw markdown passthrough article-kind posts
+	// get.
+	obj, err := svc.GetPublishedObject(PostSlug(post.ID))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var contentHTML string
+	_ = vocab.OnObject(obj, func(o *vocab.Object) error {
+		contentHTML = string(o.Content.First())
+		return nil
+	})
+	if strings.Contains(contentHTML, "> The excerpt text.") {
+		t.Fatalf("expected sanitized HTML, got raw markdown passthrough: %q", contentHTML)
+	}
+	if !strings.Contains(contentHTML, "<blockquote>") {
+		t.Fatalf("expected sanitized HTML to contain a blockquote, got %q", contentHTML)
+	}
+	if !strings.Contains(contentHTML, "My commentary paragraph.") {
+		t.Fatalf("expected sanitized HTML to contain commentary, got %q", contentHTML)
+	}
+	if !strings.Contains(contentHTML, "via Some Friend") {
+		t.Fatalf("expected sanitized HTML to contain the via line, got %q", contentHTML)
+	}
+
+	// The federated activity body must carry the full composed content, not
+	// a truncated excerpt (the KindArticle shape ArticleFederationContentHTML
+	// produces).
+	fed, err := FederatedActivity(post, create)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fedHTML string
+	_ = vocab.OnObject(fed.Object, func(o *vocab.Object) error {
+		fedHTML = string(o.Content.First())
+		return nil
+	})
+	if !strings.Contains(fedHTML, "My commentary paragraph.") {
+		t.Fatalf("expected federated body to carry full commentary, got %q", fedHTML)
+	}
+	if !strings.Contains(fedHTML, "via Some Friend") {
+		t.Fatalf("expected federated body to carry the via line, got %q", fedHTML)
+	}
+	if strings.Contains(fedHTML, "Read more on") {
+		t.Fatalf("expected federated body to skip the truncated article shape, got %q", fedHTML)
 	}
 }
