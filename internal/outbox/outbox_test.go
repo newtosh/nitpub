@@ -1014,3 +1014,55 @@ func TestQuotePostFederatesFullContentSanitized(t *testing.T) {
 		t.Fatalf("expected federated body to skip the truncated article shape, got %q", fedHTML)
 	}
 }
+
+// TestQuotePostFederationOmitsViaWhenBlank covers AE4 end-to-end: a via-less
+// quote post carries no via text in its composed content, its serialized
+// native object HTML, or its federated activity HTML.
+func TestQuotePostFederationOmitsViaWhenBlank(t *testing.T) {
+	dir := t.TempDir()
+	st, err := store.Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	svc := New(st, "http://example.test", "http://example.test/actor")
+	fields := QuoteFields{
+		SourceURL:  "https://example.com/article",
+		Excerpt:    "The excerpt text.",
+		Commentary: "My commentary paragraph.",
+	}
+	post, create, err := svc.CreateQuotePost(fields)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(post.Content, "via") {
+		t.Fatalf("composed content leaked a via line with Via blank: %q", post.Content)
+	}
+
+	obj, err := svc.GetPublishedObject(PostSlug(post.ID))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var contentHTML string
+	_ = vocab.OnObject(obj, func(o *vocab.Object) error {
+		contentHTML = string(o.Content.First())
+		return nil
+	})
+	if strings.Contains(contentHTML, "via") {
+		t.Fatalf("native object HTML leaked via text with Via blank: %q", contentHTML)
+	}
+
+	fed, err := FederatedActivity(post, create)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fedHTML string
+	_ = vocab.OnObject(fed.Object, func(o *vocab.Object) error {
+		fedHTML = string(o.Content.First())
+		return nil
+	})
+	if strings.Contains(fedHTML, "via") {
+		t.Fatalf("federated activity HTML leaked via text with Via blank: %q", fedHTML)
+	}
+}
