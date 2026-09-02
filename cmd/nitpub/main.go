@@ -22,11 +22,14 @@ func main() {
 	}
 }
 
-func run() error {
+func run(enableQuotePosts bool) error {
 	cfg, err := config.Load()
 	if err != nil {
 		return err
 	}
+	// Set directly from the CLI flag, never from config.toml — see
+	// Config.QuotePostsEnabled's doc comment (R6/R7).
+	cfg.QuotePostsEnabled = enableQuotePosts
 
 	st, err := store.Open(cfg.DataDir)
 	if err != nil {

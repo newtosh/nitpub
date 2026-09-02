@@ -10,9 +10,14 @@ func newRootCmd() *cobra.Command {
 		Short: "nitpub ActivityPub blog server",
 		Long:  "Single-binary ActivityPub blog and admin CLI.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return run()
+			enableQuotePosts, err := cmd.Flags().GetBool("enable-quote-posts")
+			if err != nil {
+				return err
+			}
+			return run(enableQuotePosts)
 		},
 	}
+	root.PersistentFlags().Bool("enable-quote-posts", false, "enable the quote-post feature (CLI-only; cannot be set via config.toml)")
 	root.AddCommand(newAdminCmd())
 	root.AddCommand(newFederationCmd())
 	root.AddCommand(newImportCmd())

@@ -91,6 +91,18 @@ type Config struct {
 	// — either way telemetry stays off (R2) until explicitly enabled.
 	TelemetryRegisterURL string
 	TelemetryIngestURL   string
+
+	// QuotePostsEnabled gates the quote-post feature (R6/R7). It is set
+	// exclusively from the --enable-quote-posts CLI flag, after Load()
+	// returns — see cmd/nitpub/main.go's run(). This field must NEVER gain
+	// a fileConfig counterpart or a copy line inside mergeEnv/Load: doing
+	// so would let config.toml enable the feature, defeating the whole
+	// point of the flag-only gate. The gate exists so an operator can ship
+	// a semver-sub release (e.g. v0.1.8-r2) with the feature present but
+	// dark, then flip it on for prod testing on a live instance purely via
+	// process args, without touching that instance's already-deployed
+	// config file.
+	QuotePostsEnabled bool
 }
 
 type fileConfig struct {
