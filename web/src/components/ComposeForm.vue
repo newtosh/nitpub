@@ -582,7 +582,7 @@ function submit() {
           Quote
         </button>
       </div>
-      <ComposeInfoTooltip v-if="kind !== 'quote'" :content="federationHint(kind)" />
+      <ComposeInfoTooltip :content="federationHint(kind)" />
     </div>
 
     <p v-if="convertNotice" class="notice">{{ convertNotice }}</p>
@@ -629,7 +629,7 @@ function submit() {
     </template>
 
     <template v-else>
-      <label class="quote-field">
+      <label class="quote-field title-field">
         Source URL
         <input
           v-model="quoteSourceUrl"
@@ -880,18 +880,18 @@ label {
   outline: 2px solid color-mix(in srgb, var(--accent) 35%, transparent);
   border-color: var(--accent);
 }
-.quote-field {
-  font-size: 0.85rem;
-  color: var(--muted);
-}
 .quote-field-hint {
   font-weight: 400;
+  font-size: 0.85rem;
+  color: var(--muted);
   opacity: 0.8;
 }
 .quote-input,
 .quote-textarea {
   font: inherit;
-  font-size: 0.95rem;
+  /* Matches MarkdownEditor's textarea: iOS Safari auto-zooms on focus
+     when an input's font-size is under 16px. */
+  font-size: 1rem;
   padding: 0.55rem 0.75rem;
   border: 1px solid var(--border);
   border-radius: 8px;
