@@ -181,14 +181,12 @@ func (h *Handler) SetTelemetry(st telemetryStore, registerURL string) {
 	h.telemetryRegisterURL = registerURL
 }
 
-type createPostRequest struct {
-	Kind     string `json:"kind"`
-	Content  string `json:"content"`
-	Federate *bool  `json:"federate,omitempty"`
-	// SourceURL, Title, Excerpt, Commentary, Via carry a kind:"quote"
-	// post's structured input (R2, R3) — ignored for every other kind.
-	// Title is the auto-fetched (or manually typed) page title, used as
-	// the published link text instead of falling back to the URL's host.
+// quotePayload carries a kind:"quote" post's structured input (R2, R3),
+// shared by createPostRequest and updatePostRequest — ignored for every
+// other kind. Title is the auto-fetched (or manually typed) page title,
+// used as the published link text instead of falling back to the URL's
+// host.
+type quotePayload struct {
 	SourceURL  string `json:"source_url,omitempty"`
 	Title      string `json:"title,omitempty"`
 	Excerpt    string `json:"excerpt,omitempty"`
@@ -197,14 +195,21 @@ type createPostRequest struct {
 }
 
 // quoteFields extracts the QuoteFields carried by a create/update request.
-func (req createPostRequest) quoteFields() outbox.QuoteFields {
+func (p quotePayload) quoteFields() outbox.QuoteFields {
 	return outbox.QuoteFields{
-		SourceURL:  req.SourceURL,
-		Title:      req.Title,
-		Excerpt:    req.Excerpt,
-		Commentary: req.Commentary,
-		Via:        req.Via,
+		SourceURL:  p.SourceURL,
+		Title:      p.Title,
+		Excerpt:    p.Excerpt,
+		Commentary: p.Commentary,
+		Via:        p.Via,
 	}
+}
+
+type createPostRequest struct {
+	Kind     string `json:"kind"`
+	Content  string `json:"content"`
+	Federate *bool  `json:"federate,omitempty"`
+	quotePayload
 }
 
 func (h *Handler) ServePosts(w http.ResponseWriter, r *http.Request) {
@@ -316,23 +321,7 @@ func (h *Handler) ServePostObject(w http.ResponseWriter, r *http.Request) {
 type updatePostRequest struct {
 	Kind    string `json:"kind"`
 	Content string `json:"content"`
-	// SourceURL, Title, Excerpt, Commentary, Via carry a kind:"quote"
-	// post's structured input (R2, R3) — ignored for every other kind.
-	SourceURL  string `json:"source_url,omitempty"`
-	Title      string `json:"title,omitempty"`
-	Excerpt    string `json:"excerpt,omitempty"`
-	Commentary string `json:"commentary,omitempty"`
-	Via        string `json:"via,omitempty"`
-}
-
-func (req updatePostRequest) quoteFields() outbox.QuoteFields {
-	return outbox.QuoteFields{
-		SourceURL:  req.SourceURL,
-		Title:      req.Title,
-		Excerpt:    req.Excerpt,
-		Commentary: req.Commentary,
-		Via:        req.Via,
-	}
+	quotePayload
 }
 
 func (h *Handler) updatePost(w http.ResponseWriter, r *http.Request) {

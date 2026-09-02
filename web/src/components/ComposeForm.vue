@@ -67,11 +67,9 @@ const quoteSourceUrl = ref('')
 const quoteExcerpt = ref('')
 const quoteCommentary = ref('')
 const quoteVia = ref('')
-// Local-only: prefilled from /api/unfurl's title (R3) for the author's
-// reference while composing. Not sent to the API — BuildQuoteContent
-// (internal/outbox) always derives the published link text from the source
-// URL's hostname (KTD1/U1), so there is currently no field on the wire for
-// a custom link title to land in.
+// Prefilled from /api/unfurl's title (R3); sent to the API as `title` and
+// used as the published link text by BuildQuoteContent (internal/outbox),
+// falling back to the source URL's hostname when blank.
 const quoteLinkTitle = ref('')
 const quoteTitleFetching = ref(false)
 const baselineQuote = ref<{
@@ -386,13 +384,9 @@ onMounted(async () => {
   // fetches /api/site on mount too) so the Quote pill doesn't flicker in.
   quotePostsEnabled.value = !!getCachedSiteConfig()?.quote_posts_enabled
   if (isEdit()) {
-    try {
-      const site = await fetchSiteConfig()
-      quotePostsEnabled.value = !!site.quote_posts_enabled
-    } catch {
-      // Keep whatever the cached value already said (R6 gates writes
-      // server-side too, so a stale flag here is a UI nicety, not a hole).
-    }
+    // No extra fetch here: the admin shell already populated the cache
+    // before this component mounts, and R6 gates writes server-side too,
+    // so a stale flag here is a UI nicety, not a hole.
     return
   }
   try {
