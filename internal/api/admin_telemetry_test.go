@@ -14,7 +14,7 @@ import (
 func newTelemetryTestHandler(t *testing.T, st *store.Store, auth *Auth) *Handler {
 	t.Helper()
 	ob := outbox.New(st, "http://example.test", "http://example.test/actor")
-	return NewHandler(ob, auth, nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "nit", nil, nil, "", false)
+	return NewHandler(ob, auth, nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "nit", nil, nil, "", false, false)
 }
 
 func TestAdminGetTelemetryStatusRequiresAuth(t *testing.T) {

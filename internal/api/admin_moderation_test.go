@@ -27,7 +27,7 @@ func newModerationTestHandler(t *testing.T) (*Handler, *moderation.Service, *Aut
 	ob := outbox.New(st, "http://example.test", "http://example.test/actor")
 	mod := moderation.New(st)
 	auth, sid := testAuth(t, st)
-	h := NewHandler(ob, auth, nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "nit", nil, mod, "", false)
+	h := NewHandler(ob, auth, nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "nit", nil, mod, "", false, false)
 	return h, mod, auth, sid
 }
 
