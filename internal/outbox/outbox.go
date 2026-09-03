@@ -489,10 +489,16 @@ func (s *Service) SaveDraft(kind Kind, title, content, slug string) (*Post, erro
 	}
 	// slug becomes part of a freshly created post's storage key when no
 	// existing post matches it, so it's validated as a UUID rather than
-	// accepted as arbitrary caller input (path separators, empty, etc.).
-	if _, err := uuid.Parse(slug); err != nil {
+	// accepted as arbitrary caller input (path separators, empty, etc.) —
+	// and canonicalized, not just validated: uuid.Parse accepts multiple
+	// textual forms of the same UUID (urn:uuid: prefix, braces, bare hex),
+	// so two valid spellings of the same logical ID would otherwise create
+	// two separate rows, defeating the idempotency this upsert exists for.
+	parsedSlug, err := uuid.Parse(slug)
+	if err != nil {
 		return nil, fmt.Errorf("slug must be a valid UUID")
 	}
+	slug = parsedSlug.String()
 
 	var titlePtr *string
 	if title != "" {
@@ -500,7 +506,7 @@ func (s *Service) SaveDraft(kind Kind, title, content, slug string) (*Post, erro
 	}
 
 	var result Post
-	err := s.db.Update(func(tx *bolt.Tx) error {
+	err = s.db.Update(func(tx *bolt.Tx) error {
 		postsBucket := tx.Bucket([]byte(store.BucketPosts))
 		now := time.Now().UTC()
 

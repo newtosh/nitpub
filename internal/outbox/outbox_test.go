@@ -395,6 +395,42 @@ func TestSaveDraftRejectsMalformedSlug(t *testing.T) {
 	}
 }
 
+// TestSaveDraftCanonicalizesSlugSpelling proves two different valid textual
+// spellings of the same UUID (google/uuid's Parse accepts hyphenated,
+// urn:uuid:-prefixed, and braced forms as equivalent) target the same row
+// instead of creating a duplicate — the exact idempotency guarantee this
+// upsert design exists for, extended to cover a caller that spells the same
+// ID two different ways rather than resending byte-identical text.
+func TestSaveDraftCanonicalizesSlugSpelling(t *testing.T) {
+	dir := t.TempDir()
+	st, err := store.Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	svc := New(st, "http://example.test", "http://example.test/actor")
+	id := uuid.NewString()
+	first, err := svc.SaveDraft(KindNote, "", "attempt one", id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	retry, err := svc.SaveDraft(KindNote, "", "attempt one, retried", "urn:uuid:"+id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if retry.ID != first.ID {
+		t.Fatalf("expected the alternate spelling to target the same row, got %q vs %q", retry.ID, first.ID)
+	}
+	posts, err := svc.ListPostsForAuthor()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(posts) != 1 {
+		t.Fatalf("expected exactly one draft row, got %d", len(posts))
+	}
+}
+
 func TestSaveDraftNeverTouchesOutbox(t *testing.T) {
 	dir := t.TempDir()
 	st, err := store.Open(dir)
