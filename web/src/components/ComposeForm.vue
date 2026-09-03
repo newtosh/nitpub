@@ -3,6 +3,7 @@ import { FileUp, Save, Send, Trash2, X } from '@lucide/vue'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import MarkdownEditor from './MarkdownEditor.vue'
 import MarkdownBody from './MarkdownBody.vue'
+import EditorTabs from './EditorTabs.vue'
 import ComposeInfoTooltip from './ComposeInfoTooltip.vue'
 import InfoTip from './InfoTip.vue'
 import MastodonIcon from './icons/MastodonIcon.vue'
@@ -645,14 +646,7 @@ function submit() {
 
     <template v-else-if="kind === 'article'">
       <div class="md-editor article-editor">
-        <div class="md-editor-tabs">
-          <button type="button" :class="{ active: articleTab === 'write' }" title="Write" aria-label="Write" @click="articleTab = 'write'">
-            Write
-          </button>
-          <button type="button" :class="{ active: articleTab === 'preview' }" title="Preview" aria-label="Preview" @click="articleTab = 'preview'">
-            Preview
-          </button>
-        </div>
+        <EditorTabs v-model="articleTab" />
         <div v-show="articleTab === 'write'" class="stacked-editor-fields">
           <label class="quote-field">
             Title
@@ -688,14 +682,7 @@ function submit() {
 
     <template v-else>
       <div class="md-editor quote-editor">
-        <div class="md-editor-tabs">
-          <button type="button" :class="{ active: quoteTab === 'write' }" title="Write" aria-label="Write" @click="quoteTab = 'write'">
-            Write
-          </button>
-          <button type="button" :class="{ active: quoteTab === 'preview' }" title="Preview" aria-label="Preview" @click="quoteTab = 'preview'">
-            Preview
-          </button>
-        </div>
+        <EditorTabs v-model="quoteTab" />
         <div v-show="quoteTab === 'write'" class="stacked-editor-fields">
           <label class="quote-field">
             Source URL
