@@ -114,17 +114,18 @@ func BuildQuoteContent(f QuoteFields) (string, error) {
 	if excerpt == "" {
 		return "", fmt.Errorf("excerpt is required")
 	}
+	parsedURL, err := url.Parse(sourceURL)
+	if err != nil || (parsedURL.Scheme != "http" && parsedURL.Scheme != "https") || parsedURL.Host == "" {
+		return "", fmt.Errorf("source URL must be an absolute http(s) URL")
+	}
 
 	linkText := strings.TrimSpace(f.Title)
 	if linkText == "" {
-		linkText = sourceURL
-		if u, err := url.Parse(sourceURL); err == nil && u.Host != "" {
-			linkText = u.Host
-		}
+		linkText = parsedURL.Host
 	}
 
 	var b strings.Builder
-	fmt.Fprintf(&b, "[%s](%s)\n\n> %s", linkText, sourceURL, excerpt)
+	fmt.Fprintf(&b, "[%s](%s)\n\n%s", escapeMarkdownLinkText(linkText), sourceURL, quoteBlockquote(excerpt))
 	if commentary := strings.TrimSpace(f.Commentary); commentary != "" {
 		fmt.Fprintf(&b, "\n\n%s", commentary)
 	}
@@ -132,6 +133,37 @@ func BuildQuoteContent(f QuoteFields) (string, error) {
 		fmt.Fprintf(&b, "\n\n(via %s)", via)
 	}
 	return b.String(), nil
+}
+
+// escapeMarkdownLinkText backslash-escapes characters that would otherwise
+// let interpolated text terminate the `[...]` span early (or, combined with
+// an unescaped `\`, undo the escape itself) — e.g. a fetched page title
+// containing "]" could redirect the rendered link's href away from
+// SourceURL. Order matters: backslashes must be escaped first, or escaping
+// a bracket after the fact would itself introduce a fresh unescaped
+// backslash.
+func escapeMarkdownLinkText(s string) string {
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	s = strings.ReplaceAll(s, `[`, `\[`)
+	s = strings.ReplaceAll(s, `]`, `\]`)
+	return s
+}
+
+// quoteBlockquote prefixes every line of excerpt with "> ", including blank
+// separator lines (as a bare ">"), so a multi-paragraph excerpt stays
+// inside the blockquote — CommonMark ends a blockquote at the first blank
+// line that isn't itself prefixed, after which subsequent paragraphs render
+// as ordinary post content indistinguishable from commentary.
+func quoteBlockquote(excerpt string) string {
+	lines := strings.Split(excerpt, "\n")
+	for i, line := range lines {
+		if line == "" {
+			lines[i] = ">"
+		} else {
+			lines[i] = "> " + line
+		}
+	}
+	return strings.Join(lines, "\n")
 }
 
 // IsDraft reports whether the post is an unpublished draft. An absent/empty
@@ -154,7 +186,16 @@ func New(st *store.Store, baseURL, actorIRI string) *Service {
 // BaseURL returns the configured site origin for permalinks and feeds.
 func (s *Service) BaseURL() string { return s.baseURL }
 
+// CreatePost creates a note or article. Quote posts must go through
+// CreateQuotePost — it's the only path that composes BuildQuoteContent and
+// stores QuoteFields, and skipping it (e.g. via the admin import path
+// passing an arbitrary kind through unchecked) would create a Kind: "quote"
+// post with no Quote fields and raw, uncomposed content, bypassing R6/R7's
+// quotePostsEnabled gate entirely.
 func (s *Service) CreatePost(kind Kind, content string) (*Post, *vocab.Create, error) {
+	if kind == KindQuote {
+		return nil, nil, fmt.Errorf("quote posts must be created via CreateQuotePost")
+	}
 	return s.createPost(kind, content, nil)
 }
 
@@ -420,20 +461,20 @@ func (s *Service) lookupPostKeyTx(tx *bolt.Tx, slug string) ([]byte, error) {
 // existingSlug empty creates a new draft; non-empty updates the existing one
 // in place. Rejects if the target slug is already published (R2).
 //
-// kind == KindQuote is accepted here like any other kind, but SaveDraft
-// intentionally does not run BuildQuoteContent or store QuoteFields — its
-// whole purpose is tolerating incomplete input on every autosave tick, and
-// the composer requires SourceURL/Excerpt to be non-blank. A quote draft is
-// just raw in-progress text like a note/article draft; CreatePost/
-// CreateQuotePost (not this path) compose the canonical markdown once the
-// author actually submits (U1 step 7's chosen option).
+// kind == KindQuote is rejected: SaveDraft's shape has no room for
+// QuoteFields, quote posts never autosave from the compose UI (there is no
+// legitimate caller passing KindQuote here), and accepting it would let a
+// caller create a Kind: "quote" draft with no Quote fields and no
+// composed content, then publish it via PublishDraft — which likewise
+// never runs BuildQuoteContent — entirely bypassing R6/R7's
+// quotePostsEnabled gate.
 func (s *Service) SaveDraft(kind Kind, title, content, existingSlug string) (*Post, error) {
 	title = strings.TrimSpace(title)
 	content = strings.TrimSpace(content)
 	if title == "" && content == "" {
 		return nil, fmt.Errorf("title or content is required")
 	}
-	if kind != KindNote && kind != KindArticle && kind != KindQuote {
+	if kind != KindNote && kind != KindArticle {
 		return nil, fmt.Errorf("invalid kind %q", kind)
 	}
 

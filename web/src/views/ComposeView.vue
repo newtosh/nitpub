@@ -99,6 +99,7 @@ async function publish(payload: { kind: string; content: string; federate: boole
     <ComposeForm
       :status-text="statusText"
       :status-variant="saveState"
+      :existing-draft="!!draftSlug"
       @publish="publish"
       @draft-change="draftChange"
     />

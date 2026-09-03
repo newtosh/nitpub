@@ -31,6 +31,14 @@ const props = defineProps<{
   post?: Post | null
   statusText?: string
   statusVariant?: 'idle' | 'saving' | 'saved' | 'error'
+  // True when a draft already exists behind this compose session — either
+  // editing a post whose status is 'draft', or a new post that has already
+  // autosaved one. Quote posts have no representation in the draft system
+  // (SaveDraft rejects kind=quote outright — see internal/outbox), so the
+  // Quote pill is hidden in this state rather than letting the user reach
+  // a kind the draft-save/publish path can't carry: it would attempt to
+  // save/publish an empty note-shaped payload and fail.
+  existingDraft?: boolean
 }>()
 
 // Quote posts (R2) have no composed-markdown "content" field on the wire —
@@ -139,6 +147,25 @@ const composedContent = computed(() => {
 // excerpt, optional commentary, optional via — so the preview shows what
 // will actually publish. Kept in sync manually; there is no shared
 // implementation between Go and this client-side stitch.
+// Mirrors escapeMarkdownLinkText (internal/outbox) — a "]" or "\" in the
+// link text (e.g. from a fetched page's <title>) could otherwise terminate
+// the [...] span early and redirect the preview's rendered link away from
+// sourceUrl.
+function escapeMarkdownLinkText(text: string): string {
+  return text.replaceAll('\\', '\\\\').replaceAll('[', '\\[').replaceAll(']', '\\]')
+}
+
+// Mirrors quoteBlockquote (internal/outbox) — every line of the excerpt,
+// including blank separator lines, needs its own "> " so a multi-paragraph
+// excerpt stays inside the blockquote instead of CommonMark ending it at
+// the first unprefixed blank line.
+function quoteBlockquote(excerpt: string): string {
+  return excerpt
+    .split('\n')
+    .map((line) => (line === '' ? '>' : `> ${line}`))
+    .join('\n')
+}
+
 const quoteStitchedContent = computed(() => {
   const sourceUrl = quoteSourceUrl.value.trim()
   const excerpt = quoteExcerpt.value.trim()
@@ -154,7 +181,7 @@ const quoteStitchedContent = computed(() => {
       // BuildQuoteContent does when url.Parse fails.
     }
   }
-  let out = `[${linkText}](${sourceUrl})\n\n> ${excerpt}`
+  let out = `[${escapeMarkdownLinkText(linkText)}](${sourceUrl})\n\n${quoteBlockquote(excerpt)}`
   const commentary = quoteCommentary.value.trim()
   if (commentary) out += `\n\n${commentary}`
   const via = quoteVia.value.trim()
@@ -162,8 +189,12 @@ const quoteStitchedContent = computed(() => {
   return out
 })
 
+// Callers only ever invoke this when kind.value is 'note'/'article' (every
+// call site is guarded), but kind's declared type is wider ('quote' too),
+// so an explicit narrow here keeps the return type honest instead of
+// relying on caller discipline.
 function currentPayload(): { kind: 'note' | 'article'; content: string } {
-  return { kind: kind.value, content: composedContent.value }
+  return { kind: kind.value === 'article' ? 'article' : 'note', content: composedContent.value }
 }
 
 function normalizePayload(payload: {
@@ -198,7 +229,12 @@ const isDirty = computed(() => {
       quoteVia.value.trim() !== baselineQuote.value.via
     )
   }
-  if (!baseline.value || kind.value === 'quote') return false
+  if (!baseline.value) return false
+  // Converting an existing note/article to quote is always a real change —
+  // currentPayload()/payloadsEqual() only compare note/article shapes, so
+  // without this the conversion would read as clean and navigating away
+  // could silently discard it with no unsaved-changes prompt.
+  if (kind.value === 'quote') return true
   return !payloadsEqual(currentPayload(), baseline.value)
 })
 
@@ -373,7 +409,17 @@ async function onSourceUrlBlur() {
     const res = await fetch(`/api/unfurl?url=${encodeURIComponent(raw)}`, { signal: controller.signal })
     if (token !== quoteFetchToken || !res.ok) return
     const data = (await res.json()) as { title?: string }
-    if (token === quoteFetchToken && data.title && !quoteLinkTitle.value.trim()) {
+    // The Source URL field stays editable while this request is in flight
+    // (only quoteFetchToken guards the response, and that only changes on
+    // the *next* blur) — if the author changes the URL before this
+    // response resolves, quoteSourceUrl no longer matches raw, and this
+    // fetched title belongs to a page that's no longer what's in the field.
+    if (
+      token === quoteFetchToken &&
+      quoteSourceUrl.value.trim() === raw &&
+      data.title &&
+      !quoteLinkTitle.value.trim()
+    ) {
       quoteLinkTitle.value = data.title
     }
   } catch {
@@ -384,9 +430,14 @@ async function onSourceUrlBlur() {
   }
 }
 
+// Same narrowing note as currentPayload — the draft-publish path this
+// feeds (EditPostView's dedicated Publish button for a draft-status post)
+// only has a note/article shape to send; the Quote pill is hidden whenever
+// existingDraft is true (see the template), so kind.value is never
+// actually 'quote' here at runtime either.
 function getDraftPayload(): { kind: 'note' | 'article'; title: string; content: string } {
   return {
-    kind: kind.value,
+    kind: kind.value === 'article' ? 'article' : 'note',
     title: kind.value === 'article' ? articleTitle.value.trim() : '',
     content: kind.value === 'article' ? articleBody.value.trim() : noteContent.value.trim(),
   }
@@ -420,21 +471,18 @@ watch(defaultLoaded, async (loaded) => {
 watch(() => props.post, applyPost, { immediate: true })
 
 onMounted(async () => {
-  // Seed synchronously from whatever's already cached (the admin shell
-  // fetches /api/site on mount too) so the Quote pill doesn't flicker in.
+  // Seed synchronously from whatever's already cached so the Quote pill
+  // doesn't flicker in, then always revalidate below — /author/edit/:slug
+  // (EditPostView) is a top-level route, not a child of AdminShellView, so
+  // a direct or first visit to an edit URL has no earlier /api/site fetch
+  // to have populated this cache.
   quotePostsEnabled.value = !!getCachedSiteConfig()?.quote_posts_enabled
-  if (isEdit()) {
-    // No extra fetch here: the admin shell already populated the cache
-    // before this component mounts, and R6 gates writes server-side too,
-    // so a stale flag here is a UI nicety, not a hole.
-    return
-  }
   try {
     const site = await fetchSiteConfig()
     quotePostsEnabled.value = !!site.quote_posts_enabled
-    shareToFediverse.value = crossPostDefaultFromConfig(site.federation)
+    if (!isEdit()) shareToFediverse.value = crossPostDefaultFromConfig(site.federation)
   } catch {
-    shareToFediverse.value = true
+    if (!isEdit()) shareToFediverse.value = true
   } finally {
     defaultLoaded.value = true
   }
@@ -609,7 +657,7 @@ function submit() {
           Article
         </button>
         <button
-          v-if="quotePostsEnabled || kind === 'quote'"
+          v-if="(quotePostsEnabled && !existingDraft) || kind === 'quote'"
           type="button"
           class="pill"
           :class="{ active: kind === 'quote' }"

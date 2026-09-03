@@ -260,6 +260,7 @@ async function confirmDelete() {
       :post="composeFormPost"
       :status-text="statusText"
       :status-variant="saveState"
+      :existing-draft="post?.status === 'draft'"
       @save="save"
       @cancel="cancel"
       @delete="deleteOpen = true"

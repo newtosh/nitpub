@@ -250,7 +250,7 @@ func TestLoadIgnoresQuotePostsConfigKey(t *testing.T) {
 domain = "file.test"
 secret = "file-secret"
 http = true
-enable_quote_posts = true
+quote_posts_enabled = true
 `
 	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		t.Fatal(err)

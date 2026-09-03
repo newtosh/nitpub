@@ -797,6 +797,62 @@ func TestBuildQuoteContentRequiresExcerpt(t *testing.T) {
 	}
 }
 
+// TestBuildQuoteContentRejectsUnsafeSourceURL proves SourceURL is validated
+// as an absolute http(s) URL server-side (not just relied on client-side
+// input validation, which isn't an API boundary) — a javascript: URL or
+// relative path must never reach the composed markdown link.
+func TestBuildQuoteContentRejectsUnsafeSourceURL(t *testing.T) {
+	for _, sourceURL := range []string{
+		"javascript:alert(1)",
+		"/relative/path",
+		"not a url at all",
+		"",
+	} {
+		if _, err := BuildQuoteContent(QuoteFields{SourceURL: sourceURL, Excerpt: "text"}); err == nil {
+			t.Fatalf("expected BuildQuoteContent to reject SourceURL %q", sourceURL)
+		}
+	}
+}
+
+// TestBuildQuoteContentBlockquotesMultiParagraphExcerpt proves every line of
+// a multi-paragraph excerpt (including the blank separator) is prefixed
+// with "> " — otherwise CommonMark ends the blockquote at the first
+// unprefixed blank line, and the trailing paragraph renders as ordinary
+// post content indistinguishable from commentary.
+func TestBuildQuoteContentBlockquotesMultiParagraphExcerpt(t *testing.T) {
+	fields := QuoteFields{
+		SourceURL: "https://example.com/article",
+		Excerpt:   "First paragraph.\n\nSecond paragraph.",
+	}
+	got, err := BuildQuoteContent(fields)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "[example.com](https://example.com/article)\n\n> First paragraph.\n>\n> Second paragraph."
+	if got != want {
+		t.Fatalf("BuildQuoteContent =\n%q\nwant\n%q", got, want)
+	}
+}
+
+// TestBuildQuoteContentEscapesLinkText proves a Title containing markdown
+// link-terminating characters (e.g. a fetched page's <title> containing
+// "]") can't redirect the rendered link's href away from SourceURL.
+func TestBuildQuoteContentEscapesLinkText(t *testing.T) {
+	fields := QuoteFields{
+		SourceURL: "https://example.com/article",
+		Title:     "Click here](https://evil.example)",
+		Excerpt:   "text",
+	}
+	got, err := BuildQuoteContent(fields)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `[Click here\](https://evil.example)](https://example.com/article)` + "\n\n> text"
+	if got != want {
+		t.Fatalf("BuildQuoteContent =\n%q\nwant\n%q", got, want)
+	}
+}
+
 func TestCreateQuotePost(t *testing.T) {
 	dir := t.TempDir()
 	st, err := store.Open(dir)
@@ -885,11 +941,13 @@ func TestUpdateQuotePost(t *testing.T) {
 	}
 }
 
-// TestSaveDraftAcceptsQuoteKind is the draft-save leg of the "kind quote
-// isn't rejected as invalid" regression coverage — SaveDraft tolerates
-// partial content for any kind, including quote, without running the
-// composer's strict validation (U1 step 7).
-func TestSaveDraftAcceptsQuoteKind(t *testing.T) {
+// TestSaveDraftRejectsQuoteKind: SaveDraft's shape has no room for
+// QuoteFields and quote posts never autosave from the compose UI, so
+// accepting KindQuote here would let a caller create a Kind: "quote" draft
+// with no composed content, then publish it via PublishDraft — which
+// likewise never runs BuildQuoteContent — bypassing R6/R7's
+// quotePostsEnabled gate entirely.
+func TestSaveDraftRejectsQuoteKind(t *testing.T) {
 	dir := t.TempDir()
 	st, err := store.Open(dir)
 	if err != nil {
@@ -898,47 +956,8 @@ func TestSaveDraftAcceptsQuoteKind(t *testing.T) {
 	defer st.Close()
 
 	svc := New(st, "http://example.test", "http://example.test/actor")
-	post, err := svc.SaveDraft(KindQuote, "", "still drafting the quote", "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if post.Kind != KindQuote {
-		t.Fatalf("kind = %q", post.Kind)
-	}
-	if !post.IsDraft() {
-		t.Fatal("expected draft status")
-	}
-	if post.Quote != nil {
-		t.Fatal("expected SaveDraft not to populate QuoteFields")
-	}
-}
-
-// TestPublishDraftAcceptsQuoteKind is the publish-draft leg of the
-// regression coverage: a quote-kind draft (raw content, no QuoteFields) can
-// be published like any other kind.
-func TestPublishDraftAcceptsQuoteKind(t *testing.T) {
-	dir := t.TempDir()
-	st, err := store.Open(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer st.Close()
-
-	svc := New(st, "http://example.test", "http://example.test/actor")
-	draft, err := svc.SaveDraft(KindQuote, "", "[example.com](https://example.com)\n\n> text", "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	slug := PostSlug(draft.ID)
-	published, _, err := svc.PublishDraft(slug)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if published.IsDraft() {
-		t.Fatal("expected published post to no longer be a draft")
-	}
-	if published.Kind != KindQuote {
-		t.Fatalf("kind = %q", published.Kind)
+	if _, err := svc.SaveDraft(KindQuote, "", "still drafting the quote", ""); err == nil {
+		t.Fatal("expected SaveDraft to reject kind=quote")
 	}
 }
 
