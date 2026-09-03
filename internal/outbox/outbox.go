@@ -511,6 +511,12 @@ func (s *Service) SaveDraft(kind Kind, title, content, slug string) (*Post, erro
 		now := time.Now().UTC()
 
 		key, lookupErr := s.lookupPostKeyTx(tx, slug)
+		if lookupErr != nil && lookupErr.Error() != "post not found" {
+			// A real lookup failure (e.g. the bucket scan itself errored) —
+			// must not be treated as "no post at this slug," which would
+			// silently create a row over a masked DB error.
+			return lookupErr
+		}
 		if lookupErr != nil {
 			// No post at this slug yet — first save of this compose
 			// session (or a retry after an earlier one's response was
