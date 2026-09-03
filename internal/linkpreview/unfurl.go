@@ -165,6 +165,11 @@ func isBlockedIP(ip net.IP) bool {
 
 func parseHTML(base *url.URL, body []byte) Preview {
 	var p Preview
+	// twitter:* fields are collected separately and only merged in after the
+	// walk (rather than filled directly, first-tag-wins) so an og:* tag that
+	// appears *after* a twitter:* tag in document order still takes priority
+	// — og:* is the more standard/reliable source when both are present.
+	var tw Preview
 	doc, err := html.Parse(strings.NewReader(string(body)))
 	if err != nil {
 		return p
@@ -193,13 +198,25 @@ func parseHTML(base *url.URL, body []byte) Preview {
 				if p.Title == "" {
 					p.Title = strings.TrimSpace(content)
 				}
+			case "twitter:title":
+				if tw.Title == "" {
+					tw.Title = strings.TrimSpace(content)
+				}
 			case "og:description", "description":
 				if p.Description == "" {
 					p.Description = strings.TrimSpace(content)
 				}
+			case "twitter:description":
+				if tw.Description == "" {
+					tw.Description = strings.TrimSpace(content)
+				}
 			case "og:image":
 				if p.Image == "" {
 					p.Image = resolveURL(base, content)
+				}
+			case "twitter:image", "twitter:image:src":
+				if tw.Image == "" {
+					tw.Image = resolveURL(base, content)
 				}
 			case "og:site_name":
 				if p.SiteName == "" {
@@ -215,6 +232,15 @@ func parseHTML(base *url.URL, body []byte) Preview {
 		}
 	}
 	walk(doc)
+	if p.Title == "" {
+		p.Title = tw.Title
+	}
+	if p.Description == "" {
+		p.Description = tw.Description
+	}
+	if p.Image == "" {
+		p.Image = tw.Image
+	}
 	if p.Title == "" {
 		p.Title = title
 	}
