@@ -19,7 +19,7 @@ func TestAdminGetFederationRequiresAuth(t *testing.T) {
 	defer st.Close()
 
 	ob := outbox.New(st, "http://example.test", "http://example.test/actor")
-	h := NewHandler(ob, testAuthUnconfigured(t, st), nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "nit", nil, nil, "", false)
+	h := NewHandler(ob, testAuthUnconfigured(t, st), nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "nit", nil, nil, "", false, false)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/admin/federation", nil)
 	rec := httptest.NewRecorder()
@@ -39,7 +39,7 @@ func TestAdminGetFederation(t *testing.T) {
 
 	ob := outbox.New(st, "http://example.test", "http://example.test/actor")
 	auth, sid := testAuth(t, st)
-	h := NewHandler(ob, auth, nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "nit", nil, nil, "", false)
+	h := NewHandler(ob, auth, nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "nit", nil, nil, "", false, false)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/admin/federation", nil)
 	req.AddCookie(&http.Cookie{Name: sessionCookie, Value: sid})
@@ -72,7 +72,7 @@ func TestAdminFederationDeliveriesRequiresAuth(t *testing.T) {
 	defer st.Close()
 
 	ob := outbox.New(st, "http://example.test", "http://example.test/actor")
-	h := NewHandler(ob, testAuthUnconfigured(t, st), nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "nit", nil, nil, "", false)
+	h := NewHandler(ob, testAuthUnconfigured(t, st), nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "nit", nil, nil, "", false, false)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/admin/federation/deliveries", nil)
 	rec := httptest.NewRecorder()
@@ -92,7 +92,7 @@ func TestAdminFederationDeliveriesEmpty(t *testing.T) {
 
 	ob := outbox.New(st, "http://example.test", "http://example.test/actor")
 	auth, sid := testAuth(t, st)
-	h := NewHandler(ob, auth, nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "nit", nil, nil, "", false)
+	h := NewHandler(ob, auth, nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "nit", nil, nil, "", false, false)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/admin/federation/deliveries", nil)
 	req.AddCookie(&http.Cookie{Name: sessionCookie, Value: sid})
@@ -123,7 +123,7 @@ func TestAdminFederationDeliveriesExcludesDraft(t *testing.T) {
 
 	ob := outbox.New(st, "http://example.test", "http://example.test/actor")
 	auth, sid := testAuth(t, st)
-	h := NewHandler(ob, auth, nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "nit", nil, nil, "", false)
+	h := NewHandler(ob, auth, nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "nit", nil, nil, "", false, false)
 
 	if _, err := ob.SaveDraft(outbox.KindNote, "", "a draft, never published", ""); err != nil {
 		t.Fatal(err)
@@ -158,7 +158,7 @@ func TestAdminFederationDeliveriesClassifiesStatus(t *testing.T) {
 
 	ob := outbox.New(st, "http://example.test", "http://example.test/actor")
 	auth, sid := testAuth(t, st)
-	h := NewHandler(ob, auth, nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "nit", nil, nil, "", false)
+	h := NewHandler(ob, auth, nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "nit", nil, nil, "", false, false)
 
 	if _, _, err := ob.CreatePost(outbox.KindNote, "never attempted"); err != nil {
 		t.Fatal(err)
@@ -224,7 +224,7 @@ func TestAdminFederationDeliveriesRespectsPagination(t *testing.T) {
 
 	ob := outbox.New(st, "http://example.test", "http://example.test/actor")
 	auth, sid := testAuth(t, st)
-	h := NewHandler(ob, auth, nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "nit", nil, nil, "", false)
+	h := NewHandler(ob, auth, nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "nit", nil, nil, "", false, false)
 
 	for i := 0; i < 3; i++ {
 		if _, _, err := ob.CreatePost(outbox.KindNote, "post"); err != nil {

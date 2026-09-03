@@ -24,6 +24,9 @@ export type SiteConfig = {
   // Deploy-time config.toml flag (internal/config), not part of the
   // runtime-editable settings above — never wire an admin edit form for it.
   analytics_enabled?: boolean
+  // CLI-flag-only (--enable-quote-posts), not config.toml/admin-editable —
+  // same rationale as analytics_enabled above.
+  quote_posts_enabled?: boolean
   footer?: {
     text?: string
     show_github_link?: boolean | null

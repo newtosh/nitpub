@@ -9,6 +9,8 @@ User=nitpub
 Group=nitpub
 WorkingDirectory=/var/lib/nitpub-instance2
 Environment=NITPUB_CONFIG=/etc/nitpub/instance2/config.toml
+# Add --enable-quote-posts here to turn on quote-post support (no
+# config.toml equivalent by design — see deploy/README.md).
 ExecStart=/usr/local/bin/nitpub
 Restart=on-failure
 RestartSec=5

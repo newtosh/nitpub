@@ -1,6 +1,7 @@
 package linkpreview
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -31,6 +32,60 @@ var client = &http.Client{
 		}
 		return assertSafeURL(req.URL)
 	},
+	// Transport pins every connection (initial request and each redirect
+	// hop) to an IP resolved and validated at dial time, via safeDialContext
+	// — see its doc comment for why assertSafeURL alone isn't enough.
+	Transport: &http.Transport{
+		DialContext: safeDialContext,
+	},
+}
+
+// lookupIP resolves a hostname's IPs. A package var (rather than a direct
+// net.LookupIP call) so tests can stub DNS resolution to simulate
+// rebinding — a resolver that answers differently between the pre-flight
+// assertSafeURL check and the actual connect-time lookup.
+var lookupIP = net.LookupIP
+
+// safeDialContext is the http.Transport's DialContext. assertSafeURL's
+// hostname validation happens before the request is sent, but the
+// transport's default dialer re-resolves DNS independently at connect
+// time — a DNS-rebinding response could pass assertSafeURL with a public
+// IP, then resolve to a private one moments later when the transport
+// actually connects (TOCTOU). safeDialContext closes that gap by doing its
+// own resolution-and-validation immediately before dialing, then dialing
+// the exact IP it just validated — there is no separate "validate" step
+// whose result could go stale before "connect" runs.
+func safeDialContext(ctx context.Context, network, addr string) (net.Conn, error) {
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return nil, err
+	}
+	if host == "localhost" || strings.HasSuffix(host, ".localhost") {
+		return nil, fmt.Errorf("blocked host")
+	}
+	ips, err := lookupIP(host)
+	if err != nil {
+		return nil, fmt.Errorf("dns lookup failed")
+	}
+
+	var dialer net.Dialer
+	var lastErr error
+	for _, ip := range ips {
+		if isBlockedIP(ip) {
+			lastErr = fmt.Errorf("blocked host")
+			continue
+		}
+		conn, err := dialer.DialContext(ctx, network, net.JoinHostPort(ip.String(), port))
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		return conn, nil
+	}
+	if lastErr == nil {
+		lastErr = fmt.Errorf("no safe address found")
+	}
+	return nil, lastErr
 }
 
 // Fetch loads OG metadata for an https? URL.
@@ -89,7 +144,7 @@ func assertSafeURL(u *url.URL) error {
 	if host == "localhost" || strings.HasSuffix(host, ".localhost") {
 		return fmt.Errorf("blocked host")
 	}
-	ips, err := net.LookupIP(host)
+	ips, err := lookupIP(host)
 	if err != nil {
 		return fmt.Errorf("dns lookup failed")
 	}

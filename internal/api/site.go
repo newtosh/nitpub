@@ -42,6 +42,11 @@ func (h *Handler) ServeSite(w http.ResponseWriter, r *http.Request) {
 		// every other field in this response. Do not wire an edit form for it;
 		// see the plan's System-Wide Impact note.
 		"analytics_enabled": h.analyticsEnabled,
+		// quote_posts_enabled is a CLI-flag-only setting (internal/config.Config
+		// .QuotePostsEnabled, set via --enable-quote-posts, per KTD5/KTD4) —
+		// like analytics_enabled, it is not part of sitecontent.Manifest and is
+		// not admin-editable; do not wire an edit form for it.
+		"quote_posts_enabled": h.quotePostsEnabled,
 		"footer": map[string]any{
 			"text":             m.Footer.Text,
 			"github_url":       sitecontent.NitpubGithubURL,

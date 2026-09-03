@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 
+	vocab "github.com/go-ap/activitypub"
+
 	"github.com/newtosh/nitpub/internal/analytics"
 	"github.com/newtosh/nitpub/internal/icons"
 	"github.com/newtosh/nitpub/internal/mastodon"
@@ -47,6 +49,11 @@ type Handler struct {
 	// service itself is nil.
 	analytics        *analytics.Service
 	analyticsEnabled bool
+	// quotePostsEnabled gates kind:"quote" writes on createPost/updatePost
+	// (R6). CLI-flag-only (see config.Config.QuotePostsEnabled) — no
+	// SetQuotePostsEnabled setter, threaded through the constructor like
+	// analyticsEnabled since it must be known before the first request.
+	quotePostsEnabled bool
 	// analyticsPublicURL, set via SetAnalyticsPublicURL, is the public
 	// GoatCounter dashboard link surfaced in the analytics response —
 	// see the config.AnalyticsPublicURL field comment. Empty by default:
@@ -124,6 +131,7 @@ func NewHandler(
 	mod *moderation.Service,
 	siteTitle string,
 	analyticsEnabled bool,
+	quotePostsEnabled bool,
 ) *Handler {
 	return &Handler{
 		outbox:             ob,
@@ -143,6 +151,7 @@ func NewHandler(
 		followerCount:      followerCount,
 		siteTitle:          siteTitle,
 		analyticsEnabled:   analyticsEnabled,
+		quotePostsEnabled:  quotePostsEnabled,
 	}
 }
 
@@ -176,6 +185,11 @@ type createPostRequest struct {
 	Kind     string `json:"kind"`
 	Content  string `json:"content"`
 	Federate *bool  `json:"federate,omitempty"`
+	// outbox.QuoteFields carries a kind:"quote" post's structured input
+	// (R2, R3), ignored for every other kind. Its json tags are irrelevant
+	// here (unmarshal-only use), so it's embedded directly rather than
+	// mirrored into a request-local type.
+	outbox.QuoteFields
 }
 
 func (h *Handler) ServePosts(w http.ResponseWriter, r *http.Request) {
@@ -287,6 +301,7 @@ func (h *Handler) ServePostObject(w http.ResponseWriter, r *http.Request) {
 type updatePostRequest struct {
 	Kind    string `json:"kind"`
 	Content string `json:"content"`
+	outbox.QuoteFields
 }
 
 func (h *Handler) updatePost(w http.ResponseWriter, r *http.Request) {
@@ -305,7 +320,17 @@ func (h *Handler) updatePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	kind := outbox.Kind(strings.ToLower(req.Kind))
-	post, err := h.outbox.UpdatePost(slug, kind, req.Content)
+	if kind == outbox.KindQuote && !h.quotePostsEnabled {
+		http.Error(w, "quote posts are not enabled", http.StatusForbidden)
+		return
+	}
+	var post *outbox.Post
+	var err error
+	if kind == outbox.KindQuote {
+		post, err = h.outbox.UpdateQuotePost(slug, req.QuoteFields)
+	} else {
+		post, err = h.outbox.UpdatePost(slug, kind, req.Content)
+	}
 	if err != nil {
 		if err.Error() == "post not found" {
 			http.NotFound(w, r)
@@ -409,7 +434,18 @@ func (h *Handler) createPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	kind := outbox.Kind(strings.ToLower(req.Kind))
-	post, create, err := h.outbox.CreatePost(kind, req.Content)
+	if kind == outbox.KindQuote && !h.quotePostsEnabled {
+		http.Error(w, "quote posts are not enabled", http.StatusForbidden)
+		return
+	}
+	var post *outbox.Post
+	var create *vocab.Create
+	var err error
+	if kind == outbox.KindQuote {
+		post, create, err = h.outbox.CreateQuotePost(req.QuoteFields)
+	} else {
+		post, create, err = h.outbox.CreatePost(kind, req.Content)
+	}
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return

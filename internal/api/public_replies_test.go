@@ -22,7 +22,7 @@ func TestGetPostRepliesReturnsOnlyApproved(t *testing.T) {
 
 	ob := outbox.New(st, "http://example.test", "http://example.test/actor")
 	mod := moderation.New(st)
-	h := NewHandler(ob, testAuthUnconfigured(t, st), nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "nit", nil, mod, "", false)
+	h := NewHandler(ob, testAuthUnconfigured(t, st), nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "nit", nil, mod, "", false, false)
 
 	for _, r := range []moderation.Reply{
 		{ActivityID: "a1", PostSlug: "post-a", Actor: "x", Content: "pending", Status: moderation.StatusPending},
@@ -60,7 +60,7 @@ func TestGetPostRepliesEmptyPostReturns200EmptyArray(t *testing.T) {
 
 	ob := outbox.New(st, "http://example.test", "http://example.test/actor")
 	mod := moderation.New(st)
-	h := NewHandler(ob, testAuthUnconfigured(t, st), nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "nit", nil, mod, "", false)
+	h := NewHandler(ob, testAuthUnconfigured(t, st), nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "nit", nil, mod, "", false, false)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/posts/no-such-post/replies", nil)
 	req.SetPathValue("id", "no-such-post")
@@ -88,7 +88,7 @@ func TestGetPostRepliesResponseOmitsInternalFields(t *testing.T) {
 
 	ob := outbox.New(st, "http://example.test", "http://example.test/actor")
 	mod := moderation.New(st)
-	h := NewHandler(ob, testAuthUnconfigured(t, st), nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "nit", nil, mod, "", false)
+	h := NewHandler(ob, testAuthUnconfigured(t, st), nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "nit", nil, mod, "", false, false)
 	if err := mod.SaveReply(moderation.Reply{ActivityID: "a1", PostSlug: "post-a", Actor: "x", Content: "hi", Status: moderation.StatusApproved}); err != nil {
 		t.Fatal(err)
 	}

@@ -74,7 +74,7 @@ func testReferenceHandler(t *testing.T, client *mastodon.Client) (*Handler, *out
 	}
 
 	h := NewHandler(ob, authSvc, nil, siteSvc, nil, nil, nil, nil, nil, nil,
-		"example.test", "http://example.test", "nit", nil, nil, "", false)
+		"example.test", "http://example.test", "nit", nil, nil, "", false, false)
 
 	referenceApps := mastodon.NewAppRegistrar(client, mastodon.NewAppStoreIn(st, store.BucketReferenceApps))
 	h.SetReference(client, referenceApps, mastodon.NewReferenceAuthStore(st), true)

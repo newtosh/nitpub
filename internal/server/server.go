@@ -158,7 +158,7 @@ func New(ctx context.Context, cfg config.Config, st *store.Store, static fs.FS) 
 			return 0
 		}
 		return len(followers)
-	}, modSvc, cfg.Title, cfg.AnalyticsEnabled)
+	}, modSvc, cfg.Title, cfg.AnalyticsEnabled, cfg.QuotePostsEnabled)
 
 	iconsSvc, err := icons.New(cfg.DataDir)
 	if err != nil {

@@ -239,6 +239,36 @@ func TestLoadTelemetryEnvOverridesDefault(t *testing.T) {
 	}
 }
 
+// TestLoadIgnoresQuotePostsConfigKey proves QuotePostsEnabled (R6/R7) can
+// never be set via config.toml, even when the file contains a key matching
+// the field's natural toml-tag name. The flag is the only legal path — see
+// Config.QuotePostsEnabled's doc comment and cmd/nitpub/main.go's run().
+func TestLoadIgnoresQuotePostsConfigKey(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "nitpub.toml")
+	content := `
+domain = "file.test"
+secret = "file-secret"
+http = true
+quote_posts_enabled = true
+`
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("NITPUB_CONFIG", path)
+	t.Setenv("NITPUB_DOMAIN", "")
+	t.Setenv("NITPUB_SECRET", "")
+	t.Setenv("NITPUB_HTTP", "")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.QuotePostsEnabled {
+		t.Fatal("QuotePostsEnabled must never be settable from config.toml, even via a matching key name")
+	}
+}
+
 func TestLoadRequiresSecretInProduction(t *testing.T) {
 	t.Setenv("NITPUB_CONFIG", "")
 	t.Setenv("NITPUB_DOMAIN", "example.test")

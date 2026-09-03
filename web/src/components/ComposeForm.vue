@@ -2,7 +2,10 @@
 import { FileUp, Save, Send, Trash2, X } from '@lucide/vue'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import MarkdownEditor from './MarkdownEditor.vue'
+import MarkdownBody from './MarkdownBody.vue'
+import EditorTabs from './EditorTabs.vue'
 import ComposeInfoTooltip from './ComposeInfoTooltip.vue'
+import InfoTip from './InfoTip.vue'
 import MastodonIcon from './icons/MastodonIcon.vue'
 import type { Post } from '../lib/posts'
 import { postSlug } from '../lib/posts'
@@ -16,7 +19,7 @@ import {
 } from '../lib/contentKinds'
 import { federationHint } from '../lib/federationProfile'
 import { crossPostDefaultFromConfig } from '../lib/federationDelivery'
-import { fetchSiteConfig } from '../lib/site'
+import { fetchSiteConfig, getCachedSiteConfig } from '../lib/site'
 import { readMarkdownFile } from '../lib/markdownFile'
 import {
   clearComposeDraft,
@@ -28,11 +31,31 @@ const props = defineProps<{
   post?: Post | null
   statusText?: string
   statusVariant?: 'idle' | 'saving' | 'saved' | 'error'
+  // True when a draft already exists behind this compose session — either
+  // editing a post whose status is 'draft', or a new post that has already
+  // autosaved one. Quote posts have no representation in the draft system
+  // (SaveDraft rejects kind=quote outright — see internal/outbox), so the
+  // Quote pill is hidden in this state rather than letting the user reach
+  // a kind the draft-save/publish path can't carry: it would attempt to
+  // save/publish an empty note-shaped payload and fail.
+  existingDraft?: boolean
 }>()
 
+// Quote posts (R2) have no composed-markdown "content" field on the wire —
+// the structured fields below travel alongside kind:"quote" instead (U3's
+// createPostRequest/updatePostRequest). Optional here since note/article
+// payloads never set them.
+type QuotePayloadFields = {
+  source_url?: string
+  title?: string
+  excerpt?: string
+  commentary?: string
+  via?: string
+}
+
 const emit = defineEmits<{
-  publish: [payload: { kind: string; content: string; federate: boolean }]
-  save: [payload: { kind: string; content: string }]
+  publish: [payload: { kind: string; content: string; federate: boolean } & QuotePayloadFields]
+  save: [payload: { kind: string; content: string } & QuotePayloadFields]
   cancel: []
   delete: []
   'draft-change': [payload: { kind: 'note' | 'article'; title: string; content: string }]
@@ -40,11 +63,36 @@ const emit = defineEmits<{
 
 const isEdit = () => !!props.post
 
-const kind = ref<'note' | 'article'>('note')
+const kind = ref<'note' | 'article' | 'quote'>('note')
 const noteContent = ref('')
 const articleTitle = ref('')
 const articleBody = ref('')
+const articleTab = ref<'write' | 'preview'>('write')
 const clientError = ref('')
+
+// Quote-post compose state (R2) — bypasses the draft-autosave system
+// entirely (U1 decision: the composer's required-field validation would
+// block every autosave tick), so there's no equivalent of noteContent's
+// server-draft wiring here.
+const quotePostsEnabled = ref(false)
+const quoteSourceUrl = ref('')
+const quoteExcerpt = ref('')
+const quoteCommentary = ref('')
+const quoteVia = ref('')
+// Prefilled from /api/unfurl's title (R3); sent to the API as `title` and
+// used as the published link text by BuildQuoteContent (internal/outbox),
+// falling back to the source URL's hostname when blank.
+const quoteLinkTitle = ref('')
+const quoteTitleFetching = ref(false)
+const quoteTab = ref<'write' | 'preview'>('write')
+const baselineQuote = ref<{
+  sourceUrl: string
+  title: string
+  excerpt: string
+  commentary: string
+  via: string
+} | null>(null)
+let quoteFetchToken = 0
 const convertNotice = ref('')
 const fileInput = ref<HTMLInputElement | null>(null)
 const openNotice = ref('')
@@ -95,8 +143,58 @@ const composedContent = computed(() => {
   return noteContent.value
 })
 
+// Mirrors BuildQuoteContent (internal/outbox) exactly — link, blockquoted
+// excerpt, optional commentary, optional via — so the preview shows what
+// will actually publish. Kept in sync manually; there is no shared
+// implementation between Go and this client-side stitch.
+// Mirrors escapeMarkdownLinkText (internal/outbox) — a "]" or "\" in the
+// link text (e.g. from a fetched page's <title>) could otherwise terminate
+// the [...] span early and redirect the preview's rendered link away from
+// sourceUrl.
+function escapeMarkdownLinkText(text: string): string {
+  return text.replaceAll('\\', '\\\\').replaceAll('[', '\\[').replaceAll(']', '\\]')
+}
+
+// Mirrors quoteBlockquote (internal/outbox) — every line of the excerpt,
+// including blank separator lines, needs its own "> " so a multi-paragraph
+// excerpt stays inside the blockquote instead of CommonMark ending it at
+// the first unprefixed blank line.
+function quoteBlockquote(excerpt: string): string {
+  return excerpt
+    .split('\n')
+    .map((line) => (line === '' ? '>' : `> ${line}`))
+    .join('\n')
+}
+
+const quoteStitchedContent = computed(() => {
+  const sourceUrl = quoteSourceUrl.value.trim()
+  const excerpt = quoteExcerpt.value.trim()
+  if (!sourceUrl || !excerpt) return ''
+  let linkText = quoteLinkTitle.value.trim()
+  if (!linkText) {
+    linkText = sourceUrl
+    try {
+      const host = new URL(sourceUrl).host
+      if (host) linkText = host
+    } catch {
+      // Not a parseable URL yet — fall back to the raw string, same as
+      // BuildQuoteContent does when url.Parse fails.
+    }
+  }
+  let out = `[${escapeMarkdownLinkText(linkText)}](${sourceUrl})\n\n${quoteBlockquote(excerpt)}`
+  const commentary = quoteCommentary.value.trim()
+  if (commentary) out += `\n\n${commentary}`
+  const via = quoteVia.value.trim()
+  if (via) out += `\n\n(via ${via})`
+  return out
+})
+
+// Callers only ever invoke this when kind.value is 'note'/'article' (every
+// call site is guarded), but kind's declared type is wider ('quote' too),
+// so an explicit narrow here keeps the return type honest instead of
+// relying on caller discipline.
 function currentPayload(): { kind: 'note' | 'article'; content: string } {
-  return { kind: kind.value, content: composedContent.value }
+  return { kind: kind.value === 'article' ? 'article' : 'note', content: composedContent.value }
 }
 
 function normalizePayload(payload: {
@@ -120,7 +218,23 @@ function payloadsEqual(
 }
 
 const isDirty = computed(() => {
-  if (!baseline.value || !isEdit()) return false
+  if (!isEdit()) return false
+  if (baselineQuote.value) {
+    return (
+      kind.value !== 'quote' ||
+      quoteSourceUrl.value.trim() !== baselineQuote.value.sourceUrl ||
+      quoteLinkTitle.value.trim() !== baselineQuote.value.title ||
+      quoteExcerpt.value.trim() !== baselineQuote.value.excerpt ||
+      quoteCommentary.value.trim() !== baselineQuote.value.commentary ||
+      quoteVia.value.trim() !== baselineQuote.value.via
+    )
+  }
+  if (!baseline.value) return false
+  // Converting an existing note/article to quote is always a real change —
+  // currentPayload()/payloadsEqual() only compare note/article shapes, so
+  // without this the conversion would read as clean and navigating away
+  // could silently discard it with no unsaved-changes prompt.
+  if (kind.value === 'quote') return true
   return !payloadsEqual(currentPayload(), baseline.value)
 })
 
@@ -130,6 +244,7 @@ function applyContent(kindVal: 'note' | 'article', content: string) {
     const split = splitArticleContent(content)
     articleTitle.value = split.title
     articleBody.value = split.body
+    articleTab.value = 'write'
     noteContent.value = ''
   } else {
     noteContent.value = content
@@ -138,18 +253,56 @@ function applyContent(kindVal: 'note' | 'article', content: string) {
   }
 }
 
+function resetQuoteFields() {
+  quoteSourceUrl.value = ''
+  quoteExcerpt.value = ''
+  quoteCommentary.value = ''
+  quoteVia.value = ''
+  quoteLinkTitle.value = ''
+  quoteTitleFetching.value = false
+  quoteTab.value = 'write'
+  quoteFetchToken++
+}
+
 function applyPost(post: Post | null | undefined) {
   convertNotice.value = ''
   clientError.value = ''
   draftNotice.value = ''
+  baselineQuote.value = null
   if (!post) {
     baseline.value = null
     kind.value = 'note'
     noteContent.value = ''
     articleTitle.value = ''
     articleBody.value = ''
+    resetQuoteFields()
     return
   }
+
+  // Quote posts bypass the draft-autosave/local-restore path entirely (U1) —
+  // load its structured fields straight from the server post.
+  if (post.kind === 'quote') {
+    baseline.value = null
+    kind.value = 'quote'
+    quoteTab.value = 'write'
+    noteContent.value = ''
+    articleTitle.value = ''
+    articleBody.value = ''
+    quoteSourceUrl.value = post.quote?.source_url ?? ''
+    quoteExcerpt.value = post.quote?.excerpt ?? ''
+    quoteCommentary.value = post.quote?.commentary ?? ''
+    quoteVia.value = post.quote?.via ?? ''
+    quoteLinkTitle.value = post.quote?.title ?? ''
+    baselineQuote.value = {
+      sourceUrl: quoteSourceUrl.value,
+      title: quoteLinkTitle.value,
+      excerpt: quoteExcerpt.value,
+      commentary: quoteCommentary.value,
+      via: quoteVia.value,
+    }
+    return
+  }
+  resetQuoteFields()
 
   const serverKind: 'note' | 'article' = post.kind === 'article' ? 'article' : 'note'
   baseline.value = { kind: serverKind, content: post.content }
@@ -167,6 +320,10 @@ function applyPost(post: Post | null | undefined) {
 
 function scheduleAutosave() {
   clearTimeout(autosaveTimer)
+  // Quote posts bypass draft-autosave entirely (U1 KTD2/step 7): the
+  // composer's required-field validation would reject every autosave tick
+  // while an author is still mid-way through filling the form.
+  if (kind.value === 'quote') return
   if (isEdit() && props.post?.status !== 'draft') {
     if (!props.post || !isDirty.value) return
     autosaveTimer = setTimeout(() => {
@@ -190,7 +347,17 @@ function scheduleAutosave() {
 function markSaved() {
   if (!props.post) return
   clearComposeDraft(postSlug(props.post.id))
-  baseline.value = { ...currentPayload() }
+  if (kind.value === 'quote') {
+    baselineQuote.value = {
+      sourceUrl: quoteSourceUrl.value.trim(),
+      title: quoteLinkTitle.value.trim(),
+      excerpt: quoteExcerpt.value.trim(),
+      commentary: quoteCommentary.value.trim(),
+      via: quoteVia.value.trim(),
+    }
+  } else {
+    baseline.value = { ...currentPayload() }
+  }
   draftNotice.value = ''
 }
 
@@ -200,7 +367,17 @@ function clearDraft() {
 }
 
 function discardChanges() {
-  if (!props.post || !baseline.value) return
+  if (!props.post) return
+  if (baselineQuote.value) {
+    quoteSourceUrl.value = baselineQuote.value.sourceUrl
+    quoteLinkTitle.value = baselineQuote.value.title
+    quoteExcerpt.value = baselineQuote.value.excerpt
+    quoteCommentary.value = baselineQuote.value.commentary
+    quoteVia.value = baselineQuote.value.via
+    clientError.value = ''
+    return
+  }
+  if (!baseline.value) return
   applyContent(baseline.value.kind, baseline.value.content)
   clearDraft()
   draftNotice.value = ''
@@ -208,9 +385,59 @@ function discardChanges() {
   clientError.value = ''
 }
 
+// Fetch-and-handle-failure shape follows linkCard.ts's fetchLinkPreview:
+// any non-2xx status, network error, or timeout is swallowed and leaves
+// the title field empty and editable — auto-fetch must never block
+// publishing (R8, AE3). quoteFetchToken guards against a response that
+// resolves after the author has already moved on (edited the field
+// themselves, or submitted the form) from overwriting anything.
+async function onSourceUrlBlur() {
+  const raw = quoteSourceUrl.value.trim()
+  if (!raw || quoteLinkTitle.value.trim()) return
+  try {
+    const parsed = new URL(raw)
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return
+  } catch {
+    return
+  }
+
+  const token = ++quoteFetchToken
+  quoteTitleFetching.value = true
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 10000)
+  try {
+    const res = await fetch(`/api/unfurl?url=${encodeURIComponent(raw)}`, { signal: controller.signal })
+    if (token !== quoteFetchToken || !res.ok) return
+    const data = (await res.json()) as { title?: string }
+    // The Source URL field stays editable while this request is in flight
+    // (only quoteFetchToken guards the response, and that only changes on
+    // the *next* blur) — if the author changes the URL before this
+    // response resolves, quoteSourceUrl no longer matches raw, and this
+    // fetched title belongs to a page that's no longer what's in the field.
+    if (
+      token === quoteFetchToken &&
+      quoteSourceUrl.value.trim() === raw &&
+      data.title &&
+      !quoteLinkTitle.value.trim()
+    ) {
+      quoteLinkTitle.value = data.title
+    }
+  } catch {
+    // Network error, abort/timeout — leave the field empty and editable.
+  } finally {
+    clearTimeout(timeout)
+    if (token === quoteFetchToken) quoteTitleFetching.value = false
+  }
+}
+
+// Same narrowing note as currentPayload — the draft-publish path this
+// feeds (EditPostView's dedicated Publish button for a draft-status post)
+// only has a note/article shape to send; the Quote pill is hidden whenever
+// existingDraft is true (see the template), so kind.value is never
+// actually 'quote' here at runtime either.
 function getDraftPayload(): { kind: 'note' | 'article'; title: string; content: string } {
   return {
-    kind: kind.value,
+    kind: kind.value === 'article' ? 'article' : 'note',
     title: kind.value === 'article' ? articleTitle.value.trim() : '',
     content: kind.value === 'article' ? articleBody.value.trim() : noteContent.value.trim(),
   }
@@ -244,12 +471,18 @@ watch(defaultLoaded, async (loaded) => {
 watch(() => props.post, applyPost, { immediate: true })
 
 onMounted(async () => {
-  if (isEdit()) return
+  // Seed synchronously from whatever's already cached so the Quote pill
+  // doesn't flicker in, then always revalidate below — /author/edit/:slug
+  // (EditPostView) is a top-level route, not a child of AdminShellView, so
+  // a direct or first visit to an edit URL has no earlier /api/site fetch
+  // to have populated this cache.
+  quotePostsEnabled.value = !!getCachedSiteConfig()?.quote_posts_enabled
   try {
     const site = await fetchSiteConfig()
-    shareToFediverse.value = crossPostDefaultFromConfig(site.federation)
+    quotePostsEnabled.value = !!site.quote_posts_enabled
+    if (!isEdit()) shareToFediverse.value = crossPostDefaultFromConfig(site.federation)
   } catch {
-    shareToFediverse.value = true
+    if (!isEdit()) shareToFediverse.value = true
   } finally {
     defaultLoaded.value = true
   }
@@ -306,6 +539,7 @@ function applyParsedFile(parsed: { kind: 'note' | 'article'; content: string; fi
     const split = splitArticleContent(parsed.content)
     articleTitle.value = split.title
     articleBody.value = split.body
+    articleTab.value = 'write'
     noteContent.value = ''
   } else {
     noteContent.value = parsed.content
@@ -336,6 +570,40 @@ function openFilePicker() {
 
 function submit() {
   clientError.value = ''
+
+  if (kind.value === 'quote') {
+    // Invalidate any unfurl request still in flight — its response, if it
+    // arrives after this point, must never overwrite a title on a post
+    // that's already been submitted.
+    quoteFetchToken++
+    const sourceUrl = quoteSourceUrl.value.trim()
+    const excerpt = quoteExcerpt.value.trim()
+    if (!sourceUrl) {
+      clientError.value = 'Source URL is required'
+      return
+    }
+    if (!excerpt) {
+      clientError.value = 'Excerpt is required'
+      return
+    }
+    const quoteFields = {
+      source_url: sourceUrl,
+      title: quoteLinkTitle.value.trim(),
+      excerpt,
+      commentary: quoteCommentary.value.trim(),
+      via: quoteVia.value.trim(),
+    }
+    if (isEdit()) {
+      emit('save', { kind: 'quote', content: '', ...quoteFields })
+    } else {
+      emit('publish', { kind: 'quote', content: '', federate: shareToFediverse.value, ...quoteFields })
+      resetQuoteFields()
+      kind.value = 'note'
+      openNotice.value = ''
+    }
+    return
+  }
+
   const content = composedContent.value.trim()
   if (!content) {
     clientError.value = 'Content is required'
@@ -359,6 +627,7 @@ function submit() {
     noteContent.value = ''
     articleTitle.value = ''
     articleBody.value = ''
+    articleTab.value = 'write'
     kind.value = 'note'
     openNotice.value = ''
   }
@@ -387,6 +656,16 @@ function submit() {
         >
           Article
         </button>
+        <button
+          v-if="(quotePostsEnabled && !existingDraft) || kind === 'quote'"
+          type="button"
+          class="pill"
+          :class="{ active: kind === 'quote' }"
+          :aria-pressed="kind === 'quote'"
+          @click="kind = 'quote'"
+        >
+          Quote
+        </button>
       </div>
       <ComposeInfoTooltip :content="federationHint(kind)" />
     </div>
@@ -401,9 +680,10 @@ function submit() {
     </p>
 
     <template v-if="kind === 'note'">
-      <label class="editor-field">
+      <label class="editor-field" for="note-content">
         Note
         <MarkdownEditor
+          id="note-content"
           v-model="noteContent"
           profile="note"
           :placeholder="notePlaceholder"
@@ -412,26 +692,113 @@ function submit() {
       </label>
     </template>
 
+    <template v-else-if="kind === 'article'">
+      <div class="md-editor article-editor">
+        <EditorTabs v-model="articleTab" />
+        <div v-show="articleTab === 'write'" class="stacked-editor-fields">
+          <label class="quote-field">
+            Title
+            <input
+              v-model="articleTitle"
+              type="text"
+              class="article-title-input"
+              placeholder="Article headline"
+              autocomplete="off"
+            />
+          </label>
+          <label class="quote-field" for="article-body">
+            Body
+            <MarkdownEditor
+              id="article-body"
+              v-model="articleBody"
+              profile="article"
+              :placeholder="articleBodyPlaceholder"
+              :show-hint="false"
+              :show-preview-tab="false"
+            />
+          </label>
+        </div>
+        <div v-if="articleTab === 'preview'" class="md-editor-preview">
+          <template v-if="articleTitle.trim() || articleBody.trim()">
+            <h1 v-if="articleTitle.trim()">{{ articleTitle }}</h1>
+            <MarkdownBody :content="articleBody" />
+          </template>
+          <p v-else class="status">Add a title or body to preview the article.</p>
+        </div>
+      </div>
+    </template>
+
     <template v-else>
-      <label class="title-field">
-        Title
-        <input
-          v-model="articleTitle"
-          type="text"
-          class="article-title-input"
-          placeholder="Article headline"
-          autocomplete="off"
-        />
-      </label>
-      <label class="editor-field">
-        Body
-        <MarkdownEditor
-          v-model="articleBody"
-          profile="article"
-          :placeholder="articleBodyPlaceholder"
-          :show-hint="false"
-        />
-      </label>
+      <div class="md-editor quote-editor">
+        <EditorTabs v-model="quoteTab" />
+        <div v-show="quoteTab === 'write'" class="stacked-editor-fields">
+          <label class="quote-field">
+            Source URL
+            <input
+              v-model="quoteSourceUrl"
+              type="url"
+              class="quote-input"
+              placeholder="https://example.com/article"
+              autocomplete="off"
+              required
+              @blur="onSourceUrlBlur"
+            />
+          </label>
+          <label class="quote-field" for="quote-link-title">
+            <span class="quote-field-label">Link title <InfoTip label="The published link text — leave blank to use the source's domain name." /></span>
+            <input
+              id="quote-link-title"
+              v-model="quoteLinkTitle"
+              type="text"
+              class="quote-input"
+              :disabled="quoteTitleFetching"
+              :placeholder="quoteTitleFetching ? 'Fetching title…' : 'Auto-fetched from the source URL'"
+              autocomplete="off"
+            />
+          </label>
+          <label class="quote-field" for="quote-excerpt">
+            Excerpt
+            <MarkdownEditor
+              id="quote-excerpt"
+              v-model="quoteExcerpt"
+              profile="quote"
+              :rows="4"
+              placeholder="The quoted text from the source"
+              :show-hint="false"
+              :show-preview-tab="false"
+            />
+          </label>
+          <label class="quote-field" for="quote-commentary">
+            <span class="quote-field-label">Commentary <InfoTip label="Optional — your own take on the quote." /></span>
+            <MarkdownEditor
+              id="quote-commentary"
+              v-model="quoteCommentary"
+              profile="quote"
+              :rows="4"
+              placeholder="Your take"
+              :show-hint="false"
+              :show-preview-tab="false"
+            />
+          </label>
+          <label class="quote-field" for="quote-via">
+            <span class="quote-field-label">Via <InfoTip label="Optional — who pointed you to this, for a hat-tip." /></span>
+            <input
+              id="quote-via"
+              v-model="quoteVia"
+              type="text"
+              class="quote-input"
+              placeholder="Who pointed you to this"
+              autocomplete="off"
+            />
+          </label>
+        </div>
+        <div v-if="quoteTab === 'preview'" class="md-editor-preview">
+          <template v-if="quoteStitchedContent">
+            <MarkdownBody :content="quoteStitchedContent" :inline-link-cards="true" />
+          </template>
+          <p v-else class="status">Add a source URL and excerpt to preview the full post.</p>
+        </div>
+      </div>
     </template>
 
     <div v-if="props.statusText || kind === 'note'" class="status-row">
@@ -612,9 +979,6 @@ label {
 .notice-dismiss:hover {
   opacity: 1;
 }
-.title-field {
-  margin-top: 0.25rem;
-}
 .article-title-input {
   font: inherit;
   font-family: var(--font-serif);
@@ -628,6 +992,35 @@ label {
   color: var(--text);
 }
 .article-title-input:focus {
+  outline: 2px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  border-color: var(--accent);
+}
+.quote-field-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.stacked-editor-fields {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+}
+.quote-input {
+  font: inherit;
+  /* Matches MarkdownEditor's textarea: iOS Safari auto-zooms on focus
+     when an input's font-size is under 16px. */
+  font-size: 1rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+}
+.quote-input:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+.quote-input:focus {
   outline: 2px solid color-mix(in srgb, var(--accent) 35%, transparent);
   border-color: var(--accent);
 }

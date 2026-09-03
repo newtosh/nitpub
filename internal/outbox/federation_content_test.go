@@ -56,6 +56,92 @@ func TestNoteFederationHTMLStripsImages(t *testing.T) {
 	}
 }
 
+// TestNoteFederationHTMLQuotePostShape feeds BuildQuoteContent's composed
+// markdown through the real NoteFederationHTML conversion (goldmark +
+// bluemonday, not a stub) and asserts the sanitized HTML preserves the
+// link, blockquote, commentary, and via line in that order — the shape R4
+// promises stays identical across every quote post (U5).
+func TestNoteFederationHTMLQuotePostShape(t *testing.T) {
+	fields := QuoteFields{
+		SourceURL:  "https://example.com/article",
+		Title:      "Example Article",
+		Excerpt:    "The excerpt text.",
+		Commentary: "My commentary paragraph.",
+		Via:        "Some Friend",
+	}
+	md, err := BuildQuoteContent(fields)
+	if err != nil {
+		t.Fatal(err)
+	}
+	html, err := NoteFederationHTML(md)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	linkIdx := strings.Index(html, `<a href="https://example.com/article"`)
+	blockquoteIdx := strings.Index(html, "<blockquote>")
+	commentaryIdx := strings.Index(html, "My commentary paragraph.")
+	viaIdx := strings.Index(html, "via Some Friend")
+	if linkIdx == -1 || blockquoteIdx == -1 || commentaryIdx == -1 || viaIdx == -1 {
+		t.Fatalf("missing expected element(s): %q", html)
+	}
+	if linkIdx >= blockquoteIdx || blockquoteIdx >= commentaryIdx || commentaryIdx >= viaIdx {
+		t.Fatalf("expected link, blockquote, commentary, via in that order, got: %q", html)
+	}
+	if !strings.Contains(html, "The excerpt text.") {
+		t.Fatalf("expected blockquote to carry the excerpt text, got %q", html)
+	}
+	if !strings.Contains(html, ">Example Article<") {
+		t.Fatalf("expected link text to be the fetched title, got %q", html)
+	}
+}
+
+// TestNoteFederationHTMLQuotePostStripsUnsafeMarkup reuses the note-kind
+// sanitization guarantee (see TestNoteFederationHTMLStripsImages above) on a
+// quote-post fixture: raw HTML slipped into the excerpt/commentary through
+// the real bluemonday policy must not survive, since Mastodon renders this
+// content unescaped.
+func TestNoteFederationHTMLQuotePostStripsUnsafeMarkup(t *testing.T) {
+	fields := QuoteFields{
+		SourceURL:  "https://example.com/article",
+		Excerpt:    "Excerpt <script>alert(1)</script> text.",
+		Commentary: "Take this <img src=x onerror=alert(1)>.",
+	}
+	md, err := BuildQuoteContent(fields)
+	if err != nil {
+		t.Fatal(err)
+	}
+	html, err := NoteFederationHTML(md)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(html, "<script") || strings.Contains(html, "<img") || strings.Contains(html, "onerror=") {
+		t.Fatalf("unsafe markup leaked into sanitized quote HTML: %q", html)
+	}
+}
+
+// TestNoteFederationHTMLQuotePostOmitsViaWhenBlank covers AE4 at the
+// federation-HTML layer: a via-less quote post's sanitized HTML contains no
+// via text anywhere, not just a blank/empty via line.
+func TestNoteFederationHTMLQuotePostOmitsViaWhenBlank(t *testing.T) {
+	fields := QuoteFields{
+		SourceURL:  "https://example.com/article",
+		Excerpt:    "The excerpt text.",
+		Commentary: "My commentary paragraph.",
+	}
+	md, err := BuildQuoteContent(fields)
+	if err != nil {
+		t.Fatal(err)
+	}
+	html, err := NoteFederationHTML(md)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(html, "via") {
+		t.Fatalf("expected no via text in HTML when Via is blank, got: %q", html)
+	}
+}
+
 func TestArticleFederationSummary(t *testing.T) {
 	content := "# My Title\n\nBody with **markdown** and a link https://example.com"
 	got := ArticleFederationSummary(content)
