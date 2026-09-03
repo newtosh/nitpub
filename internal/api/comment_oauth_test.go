@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/newtosh/nitpub/internal/commentauth"
 	"github.com/newtosh/nitpub/internal/mastodon"
 	"github.com/newtosh/nitpub/internal/outbox"
@@ -368,7 +370,7 @@ func TestCommentAuthStartRejectsDraftPost(t *testing.T) {
 	client := mastodon.NewClient()
 	h, ob, _ := testCommentHandler(t, client)
 
-	draft, err := ob.SaveDraft(outbox.KindNote, "", "not published yet", "")
+	draft, err := ob.SaveDraft(outbox.KindNote, "", "not published yet", uuid.NewString())
 	if err != nil {
 		t.Fatal(err)
 	}

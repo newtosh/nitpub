@@ -6,6 +6,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/google/uuid"
+
 	"github.com/newtosh/nitpub/internal/outbox"
 	"github.com/newtosh/nitpub/internal/store"
 )
@@ -125,7 +127,7 @@ func TestAdminFederationDeliveriesExcludesDraft(t *testing.T) {
 	auth, sid := testAuth(t, st)
 	h := NewHandler(ob, auth, nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "nit", nil, nil, "", false, false)
 
-	if _, err := ob.SaveDraft(outbox.KindNote, "", "a draft, never published", ""); err != nil {
+	if _, err := ob.SaveDraft(outbox.KindNote, "", "a draft, never published", uuid.NewString()); err != nil {
 		t.Fatal(err)
 	}
 

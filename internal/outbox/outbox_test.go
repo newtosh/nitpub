@@ -7,6 +7,7 @@ import (
 	"time"
 
 	vocab "github.com/go-ap/activitypub"
+	"github.com/google/uuid"
 	bolt "go.etcd.io/bbolt"
 
 	"github.com/newtosh/nitpub/internal/store"
@@ -247,7 +248,7 @@ func TestSaveDraftPartialTitleOnly(t *testing.T) {
 	defer st.Close()
 
 	svc := New(st, "http://example.test", "http://example.test/actor")
-	post, err := svc.SaveDraft(KindArticle, "Untitled thoughts", "", "")
+	post, err := svc.SaveDraft(KindArticle, "Untitled thoughts", "", uuid.NewString())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -268,7 +269,7 @@ func TestSaveDraftPartialContentOnly(t *testing.T) {
 	defer st.Close()
 
 	svc := New(st, "http://example.test", "http://example.test/actor")
-	post, err := svc.SaveDraft(KindNote, "", "half a thought", "")
+	post, err := svc.SaveDraft(KindNote, "", "half a thought", uuid.NewString())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -317,7 +318,7 @@ func TestSaveDraftUpdatesSameRow(t *testing.T) {
 	defer st.Close()
 
 	svc := New(st, "http://example.test", "http://example.test/actor")
-	first, err := svc.SaveDraft(KindNote, "", "first pass", "")
+	first, err := svc.SaveDraft(KindNote, "", "first pass", uuid.NewString())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -342,6 +343,58 @@ func TestSaveDraftUpdatesSameRow(t *testing.T) {
 	}
 }
 
+// TestSaveDraftIdempotentFirstSave proves the actual bug this design fixes:
+// a client-generated slug reused across the *first* two SaveDraft calls
+// (simulating a lost response — the client never learned the row existed,
+// so it retries with the same slug it already picked) updates the same row
+// instead of the old "empty slug always creates" behavior producing a
+// second, orphaned draft.
+func TestSaveDraftIdempotentFirstSave(t *testing.T) {
+	dir := t.TempDir()
+	st, err := store.Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	svc := New(st, "http://example.test", "http://example.test/actor")
+	clientSlug := uuid.NewString()
+	first, err := svc.SaveDraft(KindNote, "", "attempt one", clientSlug)
+	if err != nil {
+		t.Fatal(err)
+	}
+	retry, err := svc.SaveDraft(KindNote, "", "attempt one, retried", clientSlug)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if retry.ID != first.ID {
+		t.Fatalf("expected the retry to target the same row, got %q vs %q", retry.ID, first.ID)
+	}
+	posts, err := svc.ListPostsForAuthor()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(posts) != 1 {
+		t.Fatalf("expected exactly one draft row, got %d", len(posts))
+	}
+}
+
+func TestSaveDraftRejectsMalformedSlug(t *testing.T) {
+	dir := t.TempDir()
+	st, err := store.Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	svc := New(st, "http://example.test", "http://example.test/actor")
+	for _, slug := range []string{"", "not-a-uuid", "../etc/passwd"} {
+		if _, err := svc.SaveDraft(KindNote, "", "some content", slug); err == nil {
+			t.Fatalf("expected SaveDraft to reject slug %q", slug)
+		}
+	}
+}
+
 func TestSaveDraftNeverTouchesOutbox(t *testing.T) {
 	dir := t.TempDir()
 	st, err := store.Open(dir)
@@ -351,7 +404,7 @@ func TestSaveDraftNeverTouchesOutbox(t *testing.T) {
 	defer st.Close()
 
 	svc := New(st, "http://example.test", "http://example.test/actor")
-	post, err := svc.SaveDraft(KindNote, "", "draft content", "")
+	post, err := svc.SaveDraft(KindNote, "", "draft content", uuid.NewString())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -376,7 +429,7 @@ func TestUpdatePostRejectsDraft(t *testing.T) {
 	defer st.Close()
 
 	svc := New(st, "http://example.test", "http://example.test/actor")
-	draft, err := svc.SaveDraft(KindNote, "", "still a draft", "")
+	draft, err := svc.SaveDraft(KindNote, "", "still a draft", uuid.NewString())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -405,7 +458,7 @@ func TestPublishDraftTransitionsAndFederates(t *testing.T) {
 	defer st.Close()
 
 	svc := New(st, "http://example.test", "http://example.test/actor")
-	draft, err := svc.SaveDraft(KindNote, "", "a valid note draft", "")
+	draft, err := svc.SaveDraft(KindNote, "", "a valid note draft", uuid.NewString())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -441,7 +494,7 @@ func TestPublishDraftDoesNotCreateSecondRow(t *testing.T) {
 	defer st.Close()
 
 	svc := New(st, "http://example.test", "http://example.test/actor")
-	draft, err := svc.SaveDraft(KindNote, "", "one row only", "")
+	draft, err := svc.SaveDraft(KindNote, "", "one row only", uuid.NewString())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -476,7 +529,7 @@ func TestPublishDraftRejectsEmptyContent(t *testing.T) {
 	svc := New(st, "http://example.test", "http://example.test/actor")
 	// A note has no title concept once published (KTD7) — a "title"-only note
 	// draft has nothing to combine, leaving no publishable content.
-	draft, err := svc.SaveDraft(KindNote, "in-progress title, no body", "", "")
+	draft, err := svc.SaveDraft(KindNote, "in-progress title, no body", "", uuid.NewString())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -522,7 +575,7 @@ func TestPublishDraftNoteMatchesDirectCreate(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	draft, err := svc.SaveDraft(KindNote, "", "same content, direct create", "")
+	draft, err := svc.SaveDraft(KindNote, "", "same content, direct create", uuid.NewString())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -569,7 +622,7 @@ func TestPublishDraftArticleRecombinesTitleAndContent(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	draft, err := svc.SaveDraft(KindArticle, "My Headline", "The article body.", "")
+	draft, err := svc.SaveDraft(KindArticle, "My Headline", "The article body.", uuid.NewString())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -591,7 +644,7 @@ func TestPublishDraftUsesFreshPublishTimestamp(t *testing.T) {
 	defer st.Close()
 
 	svc := New(st, "http://example.test", "http://example.test/actor")
-	draft, err := svc.SaveDraft(KindNote, "", "sat around for a while", "")
+	draft, err := svc.SaveDraft(KindNote, "", "sat around for a while", uuid.NewString())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -619,7 +672,7 @@ func TestListPostsExcludesDraftsIncludesPublished(t *testing.T) {
 	defer st.Close()
 
 	svc := New(st, "http://example.test", "http://example.test/actor")
-	draft, err := svc.SaveDraft(KindNote, "", "a draft", "")
+	draft, err := svc.SaveDraft(KindNote, "", "a draft", uuid.NewString())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -655,7 +708,7 @@ func TestListPostsForAuthorIncludesDrafts(t *testing.T) {
 	defer st.Close()
 
 	svc := New(st, "http://example.test", "http://example.test/actor")
-	draft, err := svc.SaveDraft(KindNote, "", "a draft", "")
+	draft, err := svc.SaveDraft(KindNote, "", "a draft", uuid.NewString())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -692,7 +745,7 @@ func TestGetPublishedPostHidesDraft(t *testing.T) {
 	defer st.Close()
 
 	svc := New(st, "http://example.test", "http://example.test/actor")
-	draft, err := svc.SaveDraft(KindNote, "", "a draft", "")
+	draft, err := svc.SaveDraft(KindNote, "", "a draft", uuid.NewString())
 	if err != nil {
 		t.Fatal(err)
 	}

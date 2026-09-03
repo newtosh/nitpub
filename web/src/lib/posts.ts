@@ -292,7 +292,12 @@ export async function saveDraft(payload: {
   kind: string
   title?: string
   content: string
-  slug?: string
+  // Always required now — SaveDraft is an upsert keyed on this slug, not
+  // create-when-absent (see internal/outbox.SaveDraft's doc comment). The
+  // caller mints it once (crypto.randomUUID()) at the start of a compose
+  // session and reuses it for every autosave, including the first, so a
+  // lost response doesn't leave a stray duplicate draft behind.
+  slug: string
 }): Promise<Post> {
   const res = await fetch('/api/posts/drafts', {
     method: 'POST',

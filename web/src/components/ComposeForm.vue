@@ -31,13 +31,15 @@ const props = defineProps<{
   post?: Post | null
   statusText?: string
   statusVariant?: 'idle' | 'saving' | 'saved' | 'error'
-  // True when a draft already exists behind this compose session — either
-  // editing a post whose status is 'draft', or a new post that has already
-  // autosaved one. Quote posts have no representation in the draft system
-  // (SaveDraft rejects kind=quote outright — see internal/outbox), so the
-  // Quote pill is hidden in this state rather than letting the user reach
-  // a kind the draft-save/publish path can't carry: it would attempt to
-  // save/publish an empty note-shaped payload and fail.
+  // True when editing an existing post whose status is 'draft' (set only
+  // by EditPostView — ComposeView's own stray-autosave case routes around
+  // the problem instead, see its publish()). Quote posts have no
+  // representation in the draft system (SaveDraft rejects kind=quote
+  // outright — see internal/outbox), and there's currently no path to
+  // convert an existing draft's kind to quote and publish/save it (both
+  // SaveDraft and updatePost reject a draft-status post one way or the
+  // other), so the Quote pill is hidden here rather than letting the user
+  // reach a dead end.
   existingDraft?: boolean
 }>()
 

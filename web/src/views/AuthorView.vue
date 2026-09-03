@@ -219,7 +219,7 @@ onMounted(async () => {
     </ul>
 
     <ul v-else>
-      <li v-for="post in posts" :key="post.id">
+      <li v-for="post in posts" :key="post.id" :class="{ 'draft-row': post.status === 'draft' }">
         <div class="row">
           <RouterLink
             class="row-title"
@@ -393,6 +393,12 @@ onMounted(async () => {
   color: var(--accent);
   font-weight: 600;
   margin-right: var(--space-2);
+}
+.draft-row {
+  background: color-mix(in srgb, var(--warn) 6%, transparent);
+  border-radius: var(--radius-md);
+  margin: 0 calc(var(--space-2) * -1);
+  padding: 0 var(--space-2);
 }
 .draft-badge {
   display: inline-block;
