@@ -176,6 +176,25 @@ export function articlePreviewMarkdown(post: Post, maxLen = 480): string {
   return feedPreviewMarkdown(body, maxLen)
 }
 
+/**
+ * Feed preview for kind:"quote" posts — keeps the link line and full
+ * blockquoted excerpt intact (unlike feedPreviewMarkdown, which treats a
+ * blockquote as a rich-block truncation boundary), truncating only the
+ * trailing commentary/via text.
+ */
+export function quotePreviewMarkdown(post: Post, maxLen = 280): string {
+  const trimmed = stripCallouts(post.content).trim()
+  if (!trimmed) return ''
+  const [linkBlock, excerptBlock, ...rest] = trimmed.split(/\n\n+/)
+  const head = [linkBlock, excerptBlock].filter(Boolean).join('\n\n')
+  const tail = rest.join('\n\n').trim()
+  return tail ? `${head}\n\n${truncateForFeed(tail, maxLen)}` : head
+}
+
+export function quoteIsTruncatedInPreview(post: Post, maxLen = 280): boolean {
+  return quotePreviewMarkdown(post, maxLen).endsWith('…')
+}
+
 export function noteIsTruncatedInPreview(post: Post, maxLen = 280): boolean {
   const source = (noteBody(post.content) || post.content).trim()
   if (hasLinkCardLine(source)) {
