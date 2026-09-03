@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/newtosh/nitpub/internal/store"
 )
 
@@ -89,7 +91,7 @@ func TestBackfillFederationSkipsDrafts(t *testing.T) {
 	if _, _, err := svc.CreatePost(KindNote, "needs send"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.SaveDraft(KindNote, "", "a draft, never published", ""); err != nil {
+	if _, err := svc.SaveDraft(KindNote, "", "a draft, never published", uuid.NewString()); err != nil {
 		t.Fatal(err)
 	}
 

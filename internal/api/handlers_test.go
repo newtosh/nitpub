@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
+
 	"github.com/newtosh/nitpub/internal/outbox"
 	"github.com/newtosh/nitpub/internal/search"
 	"github.com/newtosh/nitpub/internal/store"
@@ -192,7 +194,7 @@ func TestServePostObjectDraftNotFound(t *testing.T) {
 	ob := outbox.New(st, "http://example.test", "http://example.test/actor")
 	h := NewHandler(ob, testAuthUnconfigured(t, st), nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false, false)
 
-	draft, err := ob.SaveDraft(outbox.KindNote, "", "still drafting", "")
+	draft, err := ob.SaveDraft(outbox.KindNote, "", "still drafting", uuid.NewString())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -546,7 +548,7 @@ func TestSearchIndexExcludesDraft(t *testing.T) {
 	if _, _, err := ob.CreatePost(outbox.KindNote, "uniquekeyword published"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := ob.SaveDraft(outbox.KindNote, "", "uniquekeyword draft never published", ""); err != nil {
+	if _, err := ob.SaveDraft(outbox.KindNote, "", "uniquekeyword draft never published", uuid.NewString()); err != nil {
 		t.Fatal(err)
 	}
 
@@ -589,7 +591,7 @@ func TestServeFeedExcludesDraft(t *testing.T) {
 	if _, _, err := ob.CreatePost(outbox.KindNote, "feed item"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := ob.SaveDraft(outbox.KindNote, "", "a draft, never published", ""); err != nil {
+	if _, err := ob.SaveDraft(outbox.KindNote, "", "a draft, never published", uuid.NewString()); err != nil {
 		t.Fatal(err)
 	}
 
@@ -620,7 +622,7 @@ func TestListPostsExcludesDraftUnauthenticatedIncludesAuthenticated(t *testing.T
 	auth, sid := testAuth(t, st)
 	h := NewHandler(ob, auth, nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false, false)
 
-	if _, err := ob.SaveDraft(outbox.KindNote, "", "a draft", ""); err != nil {
+	if _, err := ob.SaveDraft(outbox.KindNote, "", "a draft", uuid.NewString()); err != nil {
 		t.Fatal(err)
 	}
 	if _, _, err := ob.CreatePost(outbox.KindNote, "a published post"); err != nil {
@@ -663,7 +665,7 @@ func TestGetPostDraftUnauthenticated404AuthenticatedFound(t *testing.T) {
 	auth, sid := testAuth(t, st)
 	h := NewHandler(ob, auth, nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false, false)
 
-	draft, err := ob.SaveDraft(outbox.KindNote, "", "shh, still drafting", "")
+	draft, err := ob.SaveDraft(outbox.KindNote, "", "shh, still drafting", uuid.NewString())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -719,7 +721,10 @@ func TestSaveDraftAuthenticatedCreatesThenUpdatesInPlace(t *testing.T) {
 	auth, sid := testAuth(t, st)
 	h := NewHandler(ob, auth, nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false, false)
 
-	body := bytes.NewBufferString(`{"kind":"note","content":"first pass"}`)
+	// The client always mints its own slug up front now (SaveDraft is an
+	// UPSERT, not create-when-empty) — see outbox.SaveDraft's doc comment.
+	clientSlug := uuid.NewString()
+	body := bytes.NewBufferString(`{"kind":"note","content":"first pass","slug":"` + clientSlug + `"}`)
 	req := httptest.NewRequest(http.MethodPost, "/api/posts/drafts", body)
 	req.AddCookie(&http.Cookie{Name: sessionCookie, Value: sid})
 	rec := httptest.NewRecorder()
@@ -732,6 +737,9 @@ func TestSaveDraftAuthenticatedCreatesThenUpdatesInPlace(t *testing.T) {
 		t.Fatal(err)
 	}
 	slug := outbox.PostSlug(first.ID)
+	if slug != clientSlug {
+		t.Fatalf("expected the post to be created at the client-supplied slug, got %q want %q", slug, clientSlug)
+	}
 
 	body2 := bytes.NewBufferString(`{"kind":"note","content":"second pass","slug":"` + slug + `"}`)
 	req2 := httptest.NewRequest(http.MethodPost, "/api/posts/drafts", body2)
@@ -773,7 +781,7 @@ func TestPublishDraftEndpointTransitionsAndReindexes(t *testing.T) {
 	reindexed := false
 	h := NewHandler(ob, auth, nil, nil, nil, func() { reindexed = true }, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false, false)
 
-	draft, err := ob.SaveDraft(outbox.KindNote, "", "ready to publish", "")
+	draft, err := ob.SaveDraft(outbox.KindNote, "", "ready to publish", uuid.NewString())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -812,7 +820,7 @@ func TestPublishDraftEndpointRejectsEmptyContent(t *testing.T) {
 	auth, sid := testAuth(t, st)
 	h := NewHandler(ob, auth, nil, nil, nil, nil, nil, nil, nil, nil, "example.test", "http://example.test", "user", nil, nil, "", false, false)
 
-	draft, err := ob.SaveDraft(outbox.KindNote, "title-only note draft", "", "")
+	draft, err := ob.SaveDraft(outbox.KindNote, "title-only note draft", "", uuid.NewString())
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -458,8 +458,18 @@ func (s *Service) lookupPostKeyTx(tx *bolt.Tx, slug string) ([]byte, error) {
 
 // SaveDraft persists partial title/content as a draft Post, without the
 // validations that gate Publish and without touching BucketOutbox (KTD2).
-// existingSlug empty creates a new draft; non-empty updates the existing one
-// in place. Rejects if the target slug is already published (R2).
+// Rejects if the target slug is already published (R2).
+//
+// slug is required and is always caller-supplied (a client-generated UUID,
+// minted once at the start of a compose session — see ComposeView.vue) so
+// every autosave, including the very first, targets the same row whether
+// it exists yet or not: an UPSERT, not create-when-empty/update-when-set.
+// This makes autosave retry-safe against a lost response — e.g. the
+// server process restarting mid-request. Before this, an empty slug meant
+// "create new," so a first autosave whose response never arrived (write
+// succeeded, but the client never learned the assigned ID) left the next
+// retry with no ID to target, creating a second, separate draft row
+// instead of updating the first.
 //
 // kind == KindQuote is rejected: SaveDraft's shape has no room for
 // QuoteFields, quote posts never autosave from the compose UI (there is no
@@ -468,7 +478,7 @@ func (s *Service) lookupPostKeyTx(tx *bolt.Tx, slug string) ([]byte, error) {
 // composed content, then publish it via PublishDraft — which likewise
 // never runs BuildQuoteContent — entirely bypassing R6/R7's
 // quotePostsEnabled gate.
-func (s *Service) SaveDraft(kind Kind, title, content, existingSlug string) (*Post, error) {
+func (s *Service) SaveDraft(kind Kind, title, content, slug string) (*Post, error) {
 	title = strings.TrimSpace(title)
 	content = strings.TrimSpace(content)
 	if title == "" && content == "" {
@@ -477,6 +487,18 @@ func (s *Service) SaveDraft(kind Kind, title, content, existingSlug string) (*Po
 	if kind != KindNote && kind != KindArticle {
 		return nil, fmt.Errorf("invalid kind %q", kind)
 	}
+	// slug becomes part of a freshly created post's storage key when no
+	// existing post matches it, so it's validated as a UUID rather than
+	// accepted as arbitrary caller input (path separators, empty, etc.) —
+	// and canonicalized, not just validated: uuid.Parse accepts multiple
+	// textual forms of the same UUID (urn:uuid: prefix, braces, bare hex),
+	// so two valid spellings of the same logical ID would otherwise create
+	// two separate rows, defeating the idempotency this upsert exists for.
+	parsedSlug, err := uuid.Parse(slug)
+	if err != nil {
+		return nil, fmt.Errorf("slug must be a valid UUID")
+	}
+	slug = parsedSlug.String()
 
 	var titlePtr *string
 	if title != "" {
@@ -484,13 +506,23 @@ func (s *Service) SaveDraft(kind Kind, title, content, existingSlug string) (*Po
 	}
 
 	var result Post
-	err := s.db.Update(func(tx *bolt.Tx) error {
+	err = s.db.Update(func(tx *bolt.Tx) error {
 		postsBucket := tx.Bucket([]byte(store.BucketPosts))
 		now := time.Now().UTC()
 
-		if existingSlug == "" {
+		key, lookupErr := s.lookupPostKeyTx(tx, slug)
+		if lookupErr != nil && lookupErr.Error() != "post not found" {
+			// A real lookup failure (e.g. the bucket scan itself errored) —
+			// must not be treated as "no post at this slug," which would
+			// silently create a row over a masked DB error.
+			return lookupErr
+		}
+		if lookupErr != nil {
+			// No post at this slug yet — first save of this compose
+			// session (or a retry after an earlier one's response was
+			// lost before the row could even be created).
 			result = Post{
-				ID:        fmt.Sprintf("%s/posts/%s", s.baseURL, uuid.NewString()),
+				ID:        s.baseURL + postIDSuffix(slug),
 				Kind:      kind,
 				Title:     titlePtr,
 				Content:   content,
@@ -499,10 +531,6 @@ func (s *Service) SaveDraft(kind Kind, title, content, existingSlug string) (*Po
 				UpdatedAt: &now,
 			}
 		} else {
-			key, err := s.lookupPostKeyTx(tx, existingSlug)
-			if err != nil {
-				return err
-			}
 			raw := postsBucket.Get(key)
 			if raw == nil {
 				return fmt.Errorf("post not found")
