@@ -2,6 +2,7 @@
 import { FileUp, Save, Send, Trash2, X } from '@lucide/vue'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import MarkdownEditor from './MarkdownEditor.vue'
+import MarkdownBody from './MarkdownBody.vue'
 import ComposeInfoTooltip from './ComposeInfoTooltip.vue'
 import InfoTip from './InfoTip.vue'
 import MastodonIcon from './icons/MastodonIcon.vue'
@@ -57,6 +58,7 @@ const kind = ref<'note' | 'article' | 'quote'>('note')
 const noteContent = ref('')
 const articleTitle = ref('')
 const articleBody = ref('')
+const articleTab = ref<'write' | 'preview'>('write')
 const clientError = ref('')
 
 // Quote-post compose state (R2) — bypasses the draft-autosave system
@@ -73,6 +75,7 @@ const quoteVia = ref('')
 // falling back to the source URL's hostname when blank.
 const quoteLinkTitle = ref('')
 const quoteTitleFetching = ref(false)
+const quoteTab = ref<'write' | 'preview'>('write')
 const baselineQuote = ref<{
   sourceUrl: string
   title: string
@@ -131,6 +134,33 @@ const composedContent = computed(() => {
   return noteContent.value
 })
 
+// Mirrors BuildQuoteContent (internal/outbox) exactly — link, blockquoted
+// excerpt, optional commentary, optional via — so the preview shows what
+// will actually publish. Kept in sync manually; there is no shared
+// implementation between Go and this client-side stitch.
+const quoteStitchedContent = computed(() => {
+  const sourceUrl = quoteSourceUrl.value.trim()
+  const excerpt = quoteExcerpt.value.trim()
+  if (!sourceUrl || !excerpt) return ''
+  let linkText = quoteLinkTitle.value.trim()
+  if (!linkText) {
+    linkText = sourceUrl
+    try {
+      const host = new URL(sourceUrl).host
+      if (host) linkText = host
+    } catch {
+      // Not a parseable URL yet — fall back to the raw string, same as
+      // BuildQuoteContent does when url.Parse fails.
+    }
+  }
+  let out = `[${linkText}](${sourceUrl})\n\n> ${excerpt}`
+  const commentary = quoteCommentary.value.trim()
+  if (commentary) out += `\n\n${commentary}`
+  const via = quoteVia.value.trim()
+  if (via) out += `\n\n(via ${via})`
+  return out
+})
+
 function currentPayload(): { kind: 'note' | 'article'; content: string } {
   return { kind: kind.value, content: composedContent.value }
 }
@@ -177,6 +207,7 @@ function applyContent(kindVal: 'note' | 'article', content: string) {
     const split = splitArticleContent(content)
     articleTitle.value = split.title
     articleBody.value = split.body
+    articleTab.value = 'write'
     noteContent.value = ''
   } else {
     noteContent.value = content
@@ -192,6 +223,7 @@ function resetQuoteFields() {
   quoteVia.value = ''
   quoteLinkTitle.value = ''
   quoteTitleFetching.value = false
+  quoteTab.value = 'write'
   quoteFetchToken++
 }
 
@@ -215,6 +247,7 @@ function applyPost(post: Post | null | undefined) {
   if (post.kind === 'quote') {
     baseline.value = null
     kind.value = 'quote'
+    quoteTab.value = 'write'
     noteContent.value = ''
     articleTitle.value = ''
     articleBody.value = ''
@@ -457,6 +490,7 @@ function applyParsedFile(parsed: { kind: 'note' | 'article'; content: string; fi
     const split = splitArticleContent(parsed.content)
     articleTitle.value = split.title
     articleBody.value = split.body
+    articleTab.value = 'write'
     noteContent.value = ''
   } else {
     noteContent.value = parsed.content
@@ -544,6 +578,7 @@ function submit() {
     noteContent.value = ''
     articleTitle.value = ''
     articleBody.value = ''
+    articleTab.value = 'write'
     kind.value = 'note'
     openNotice.value = ''
   }
@@ -596,9 +631,10 @@ function submit() {
     </p>
 
     <template v-if="kind === 'note'">
-      <label class="editor-field">
+      <label class="editor-field" for="note-content">
         Note
         <MarkdownEditor
+          id="note-content"
           v-model="noteContent"
           profile="note"
           :placeholder="notePlaceholder"
@@ -608,83 +644,126 @@ function submit() {
     </template>
 
     <template v-else-if="kind === 'article'">
-      <label class="title-field">
-        Title
-        <input
-          v-model="articleTitle"
-          type="text"
-          class="article-title-input"
-          placeholder="Article headline"
-          autocomplete="off"
-        />
-      </label>
-      <label class="editor-field">
-        Body
-        <MarkdownEditor
-          v-model="articleBody"
-          profile="article"
-          :placeholder="articleBodyPlaceholder"
-          :show-hint="false"
-        />
-      </label>
+      <div class="md-editor article-editor">
+        <div class="md-editor-tabs">
+          <button type="button" :class="{ active: articleTab === 'write' }" title="Write" aria-label="Write" @click="articleTab = 'write'">
+            Write
+          </button>
+          <button type="button" :class="{ active: articleTab === 'preview' }" title="Preview" aria-label="Preview" @click="articleTab = 'preview'">
+            Preview
+          </button>
+        </div>
+        <div v-show="articleTab === 'write'" class="stacked-editor-fields">
+          <label class="quote-field">
+            Title
+            <input
+              v-model="articleTitle"
+              type="text"
+              class="article-title-input"
+              placeholder="Article headline"
+              autocomplete="off"
+            />
+          </label>
+          <label class="quote-field" for="article-body">
+            Body
+            <MarkdownEditor
+              id="article-body"
+              v-model="articleBody"
+              profile="article"
+              :placeholder="articleBodyPlaceholder"
+              :show-hint="false"
+              :show-preview-tab="false"
+            />
+          </label>
+        </div>
+        <div v-if="articleTab === 'preview'" class="md-editor-preview">
+          <template v-if="articleTitle.trim() || articleBody.trim()">
+            <h1 v-if="articleTitle.trim()">{{ articleTitle }}</h1>
+            <MarkdownBody :content="articleBody" />
+          </template>
+          <p v-else class="status">Add a title or body to preview the article.</p>
+        </div>
+      </div>
     </template>
 
     <template v-else>
-      <label class="quote-field title-field">
-        Source URL
-        <input
-          v-model="quoteSourceUrl"
-          type="url"
-          class="quote-input"
-          placeholder="https://example.com/article"
-          autocomplete="off"
-          required
-          @blur="onSourceUrlBlur"
-        />
-      </label>
-      <label class="quote-field" for="quote-link-title">
-        <span class="quote-field-label">Link title <InfoTip label="The published link text — leave blank to use the source's domain name." /></span>
-        <input
-          id="quote-link-title"
-          v-model="quoteLinkTitle"
-          type="text"
-          class="quote-input"
-          :disabled="quoteTitleFetching"
-          :placeholder="quoteTitleFetching ? 'Fetching title…' : 'Auto-fetched from the source URL'"
-          autocomplete="off"
-        />
-      </label>
-      <label class="quote-field">
-        Excerpt
-        <textarea
-          v-model="quoteExcerpt"
-          class="quote-textarea"
-          rows="4"
-          placeholder="The quoted text from the source"
-          required
-        ></textarea>
-      </label>
-      <label class="quote-field" for="quote-commentary">
-        <span class="quote-field-label">Commentary <InfoTip label="Optional — your own take on the quote." /></span>
-        <textarea
-          id="quote-commentary"
-          v-model="quoteCommentary"
-          class="quote-textarea"
-          rows="4"
-          placeholder="Your take"
-        ></textarea>
-      </label>
-      <label class="quote-field" for="quote-via">
-        <span class="quote-field-label">Via <InfoTip label="Optional — who pointed you to this, for a hat-tip." /></span>
-        <input
-          id="quote-via"
-          v-model="quoteVia"
-          type="text"
-          class="quote-input"
-          placeholder="Who pointed you to this"
-          autocomplete="off"
-        />
-      </label>
+      <div class="md-editor quote-editor">
+        <div class="md-editor-tabs">
+          <button type="button" :class="{ active: quoteTab === 'write' }" title="Write" aria-label="Write" @click="quoteTab = 'write'">
+            Write
+          </button>
+          <button type="button" :class="{ active: quoteTab === 'preview' }" title="Preview" aria-label="Preview" @click="quoteTab = 'preview'">
+            Preview
+          </button>
+        </div>
+        <div v-show="quoteTab === 'write'" class="stacked-editor-fields">
+          <label class="quote-field">
+            Source URL
+            <input
+              v-model="quoteSourceUrl"
+              type="url"
+              class="quote-input"
+              placeholder="https://example.com/article"
+              autocomplete="off"
+              required
+              @blur="onSourceUrlBlur"
+            />
+          </label>
+          <label class="quote-field" for="quote-link-title">
+            <span class="quote-field-label">Link title <InfoTip label="The published link text — leave blank to use the source's domain name." /></span>
+            <input
+              id="quote-link-title"
+              v-model="quoteLinkTitle"
+              type="text"
+              class="quote-input"
+              :disabled="quoteTitleFetching"
+              :placeholder="quoteTitleFetching ? 'Fetching title…' : 'Auto-fetched from the source URL'"
+              autocomplete="off"
+            />
+          </label>
+          <label class="quote-field" for="quote-excerpt">
+            Excerpt
+            <MarkdownEditor
+              id="quote-excerpt"
+              v-model="quoteExcerpt"
+              profile="quote"
+              :rows="4"
+              placeholder="The quoted text from the source"
+              :show-hint="false"
+              :show-preview-tab="false"
+            />
+          </label>
+          <label class="quote-field" for="quote-commentary">
+            <span class="quote-field-label">Commentary <InfoTip label="Optional — your own take on the quote." /></span>
+            <MarkdownEditor
+              id="quote-commentary"
+              v-model="quoteCommentary"
+              profile="quote"
+              :rows="4"
+              placeholder="Your take"
+              :show-hint="false"
+              :show-preview-tab="false"
+            />
+          </label>
+          <label class="quote-field" for="quote-via">
+            <span class="quote-field-label">Via <InfoTip label="Optional — who pointed you to this, for a hat-tip." /></span>
+            <input
+              id="quote-via"
+              v-model="quoteVia"
+              type="text"
+              class="quote-input"
+              placeholder="Who pointed you to this"
+              autocomplete="off"
+            />
+          </label>
+        </div>
+        <div v-if="quoteTab === 'preview'" class="md-editor-preview">
+          <template v-if="quoteStitchedContent">
+            <MarkdownBody :content="quoteStitchedContent" :inline-link-cards="true" />
+          </template>
+          <p v-else class="status">Add a source URL and excerpt to preview the full post.</p>
+        </div>
+      </div>
     </template>
 
     <div v-if="props.statusText || kind === 'note'" class="status-row">
@@ -865,9 +944,6 @@ label {
 .notice-dismiss:hover {
   opacity: 1;
 }
-.title-field {
-  margin-top: 0.25rem;
-}
 .article-title-input {
   font: inherit;
   font-family: var(--font-serif);
@@ -889,8 +965,12 @@ label {
   align-items: center;
   gap: 0.35rem;
 }
-.quote-input,
-.quote-textarea {
+.stacked-editor-fields {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+}
+.quote-input {
   font: inherit;
   /* Matches MarkdownEditor's textarea: iOS Safari auto-zooms on focus
      when an input's font-size is under 16px. */
@@ -900,14 +980,12 @@ label {
   border-radius: 8px;
   background: var(--surface);
   color: var(--text);
-  resize: vertical;
 }
 .quote-input:disabled {
   opacity: 0.65;
   cursor: wait;
 }
-.quote-input:focus,
-.quote-textarea:focus {
+.quote-input:focus {
   outline: 2px solid color-mix(in srgb, var(--accent) 35%, transparent);
   border-color: var(--accent);
 }

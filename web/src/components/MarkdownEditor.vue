@@ -10,14 +10,33 @@ import { toggleBold, toggleItalic, toggleLink, toggleWrap } from '../lib/markdow
 import { fetchIconSVG } from '../lib/phosphorIcons'
 import { noteBody, noteTitle } from '../lib/posts'
 
+defineOptions({ inheritAttrs: false })
+
 const model = defineModel<string>({ required: true })
 
-const props = defineProps<{
-  placeholder?: string
-  rows?: number
-  profile?: EditorProfile
-  showHint?: boolean
-}>()
+// A Boolean-typed prop that's absent (not just undefined) is cast to
+// false by Vue when no default is declared — withDefaults is required
+// here, a `?? true` fallback on props.showPreviewTab never sees true.
+const props = withDefaults(
+  defineProps<{
+    placeholder?: string
+    rows?: number
+    profile?: EditorProfile
+    showHint?: boolean
+    // Hides the Write/Preview tab bar for an editor embedded inside a
+    // larger form that already has its own combined preview (e.g.
+    // ComposeForm's quote fields) — the per-field preview would just be
+    // redundant chrome.
+    showPreviewTab?: boolean
+    // Applied to the underlying textarea (not the component root) so an
+    // outer <label for="..."> can target the actual control — the
+    // toolbar's buttons are labelable and precede the textarea in the
+    // DOM, so an implicit label association would otherwise bind to the
+    // first button instead of the textarea.
+    id?: string
+  }>(),
+  { showPreviewTab: true, showHint: true },
+)
 
 const profile = computed(() => props.profile ?? 'article')
 const isNote = computed(() => profile.value === 'note')
@@ -299,7 +318,7 @@ function onPaste(event: ClipboardEvent) {
 
 <template>
   <div ref="editorRoot" class="md-editor" :class="{ 'md-editor--note': isNote }">
-    <div class="md-editor-tabs">
+    <div v-if="props.showPreviewTab" class="md-editor-tabs">
       <button type="button" :class="{ active: tab === 'write' }" title="Write" aria-label="Write" @click="tab = 'write'">
         Write
       </button>
@@ -339,6 +358,7 @@ function onPaste(event: ClipboardEvent) {
 
     <div v-show="tab === 'write'" class="md-editor-write">
       <textarea
+        :id="props.id"
         ref="textarea"
         v-model="model"
         :rows="props.rows ?? 14"
@@ -365,7 +385,7 @@ function onPaste(event: ClipboardEvent) {
         </li>
       </ul>
     </div>
-    <div v-show="tab === 'preview'" class="md-editor-preview">
+    <div v-if="props.showPreviewTab" v-show="tab === 'preview'" class="md-editor-preview">
       <div v-if="isNote" class="preview-mode-switch">
         <button
           type="button"
@@ -401,7 +421,7 @@ function onPaste(event: ClipboardEvent) {
     </div>
 
     <p v-if="uploadError" class="md-editor-upload-error">{{ uploadError }}</p>
-    <p v-if="props.showHint ?? true" class="md-editor-hint">{{ federationHint(profile) }}</p>
+    <p v-if="props.showHint" class="md-editor-hint">{{ federationHint(profile) }}</p>
   </div>
 </template>
 
