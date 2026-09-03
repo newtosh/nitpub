@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import ComposeForm from '../components/ComposeForm.vue'
 import RecentPostsSheet from '../components/RecentPostsSheet.vue'
 import { splitArticleContent } from '../lib/contentKinds'
-import { deletePost, postSlug, publishDraft, relativeTime, saveDraft } from '../lib/posts'
+import { deletePost, publishDraft, relativeTime, saveDraft } from '../lib/posts'
 
 const router = useRouter()
 const error = ref('')
@@ -18,10 +18,10 @@ const error = ref('')
 // never having tried at all — producing a second, separate draft row for
 // the same in-progress note instead of updating the first.
 const clientDraftId = crypto.randomUUID()
-// Set only once a save against clientDraftId has actually been confirmed
-// by the server — this is "does a draft row exist yet," distinct from
+// True only once a save against clientDraftId has actually been confirmed
+// by the server — "does a draft row exist yet," distinct from
 // clientDraftId, which exists from the start regardless.
-const draftSlug = ref<string | undefined>(undefined)
+const draftConfirmed = ref(false)
 const saveState = ref<'idle' | 'saving' | 'saved' | 'error'>('idle')
 const savedAt = ref<string | undefined>(undefined)
 // A single chained promise, not an overwritable slot — every draftChange
@@ -47,7 +47,7 @@ function draftChange(payload: { kind: 'note' | 'article'; title: string; content
         content: payload.content,
         slug: clientDraftId,
       })
-      draftSlug.value = postSlug(post.id)
+      draftConfirmed.value = true
       savedAt.value = post.updated_at ?? post.created_at
       saveState.value = 'saved'
     } catch {
@@ -70,17 +70,17 @@ async function publish(payload: { kind: string; content: string; federate: boole
     // Quote posts have no representation in the draft-publish payload
     // (source_url/excerpt/etc. have nowhere to go in {kind,title,content}),
     // and the server rejects a draft-shaped save with kind=quote outright.
-    // If the author typed a note/article first (autosaving draftSlug),
-    // then switched to Quote, that stray draft is disposable — publish the
+    // If the author typed a note/article first (autosaving a draft), then
+    // switched to Quote, that stray draft is disposable — publish the
     // quote directly and clean it up, rather than routing through it.
-    if (draftSlug.value && payload.kind !== 'quote') {
+    if (draftConfirmed.value && payload.kind !== 'quote') {
       // Publish exactly what's on screen, not whatever the last autosave
       // happened to persist — the author may have kept typing since then.
       const { title, body } =
         payload.kind === 'article'
           ? splitArticleContent(payload.content)
           : { title: '', body: payload.content }
-      await publishDraft(draftSlug.value, {
+      await publishDraft(clientDraftId, {
         kind: payload.kind,
         title,
         content: body,
@@ -89,7 +89,7 @@ async function publish(payload: { kind: string; content: string; federate: boole
       router.push('/author')
       return
     }
-    const staleDraftSlug = draftSlug.value
+    const hadStaleDraft = draftConfirmed.value
     const res = await fetch('/api/posts', {
       method: 'POST',
       credentials: 'include',
@@ -101,11 +101,11 @@ async function publish(payload: { kind: string; content: string; federate: boole
       error.value = text || 'Publish failed'
       return
     }
-    if (staleDraftSlug) {
+    if (hadStaleDraft) {
       // Best-effort — an orphaned draft is clutter, not a correctness
       // problem, so a delete failure here must never block the publish
       // that already succeeded.
-      deletePost(staleDraftSlug).catch(() => {})
+      deletePost(clientDraftId).catch(() => {})
     }
     router.push('/author')
   } catch {
