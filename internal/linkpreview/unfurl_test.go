@@ -143,6 +143,23 @@ func TestParseHTMLOGImageWinsOverTwitterImage(t *testing.T) {
 	}
 }
 
+func TestParseHTMLOGWinsOverTwitterForAllFields(t *testing.T) {
+	base, _ := url.Parse("https://example.com")
+	html := `<!DOCTYPE html><html><head>
+<meta name="twitter:title" content="Twitter Title" />
+<meta name="twitter:description" content="Twitter description." />
+<meta property="og:title" content="OG Title" />
+<meta property="og:description" content="OG description." />
+</head><body></body></html>`
+	p := parseHTML(base, []byte(html))
+	if p.Title != "OG Title" {
+		t.Fatalf("title = %q, want og:title to win", p.Title)
+	}
+	if p.Description != "OG description." {
+		t.Fatalf("description = %q, want og:description to win", p.Description)
+	}
+}
+
 func TestParseHTMLNoImageStaysEmpty(t *testing.T) {
 	base, _ := url.Parse("https://example.com")
 	html := `<!DOCTYPE html><html><head><title>No image here</title></head></html>`
