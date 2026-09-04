@@ -4,7 +4,10 @@ import { RouterLink, useRoute, useRouter } from 'vue-router'
 import InfoTip from './InfoTip.vue'
 import {
   backfillFederation,
+  connectBluesky,
+  disconnectBluesky,
   disconnectReference,
+  fetchBlueskyStatus,
   fetchFederationDeliveries,
   fetchFederationInfo,
   fetchReferenceStatus,
@@ -12,10 +15,12 @@ import {
   resendAccepts,
   resolveReferencePermalinks,
   startReferenceConnect,
+  type BlueskyStatus,
   type FederationDelivery,
   type FederationInfo,
   type ReferenceStatus,
 } from '../lib/federationAdmin'
+import BlueskyIcon from './icons/BlueskyIcon.vue'
 import { fetchAdminSite, saveManifest } from '../lib/adminSite'
 import { clearSiteConfigCache } from '../lib/site'
 import { formatDate } from '../lib/posts'
@@ -75,6 +80,51 @@ async function doDisconnectReference() {
     referenceMessage.value = e instanceof Error ? e.message : 'Failed to disconnect'
   } finally {
     referenceDisconnecting.value = false
+  }
+}
+
+// Bluesky connection panel (R1) — same shape as the reference-instance
+// panel above it: a status ref, loading flags for connect/disconnect, and
+// a shared message ref for both success and error text.
+const blueskyStatus = ref<BlueskyStatus | null>(null)
+const blueskyHandle = ref('')
+const blueskyAppPassword = ref('')
+const blueskyConnecting = ref(false)
+const blueskyDisconnecting = ref(false)
+const blueskyMessage = ref('')
+
+async function loadBlueskyStatus() {
+  try {
+    blueskyStatus.value = await fetchBlueskyStatus()
+  } catch {
+    blueskyStatus.value = null
+  }
+}
+
+async function doConnectBluesky() {
+  blueskyConnecting.value = true
+  blueskyMessage.value = ''
+  try {
+    await connectBluesky(blueskyHandle.value.trim(), blueskyAppPassword.value)
+    blueskyAppPassword.value = ''
+    await loadBlueskyStatus()
+  } catch (e) {
+    blueskyMessage.value = e instanceof Error ? e.message : 'Failed to connect'
+  } finally {
+    blueskyConnecting.value = false
+  }
+}
+
+async function doDisconnectBluesky() {
+  blueskyDisconnecting.value = true
+  blueskyMessage.value = ''
+  try {
+    await disconnectBluesky()
+    await loadBlueskyStatus()
+  } catch (e) {
+    blueskyMessage.value = e instanceof Error ? e.message : 'Failed to disconnect'
+  } finally {
+    blueskyDisconnecting.value = false
   }
 }
 
@@ -182,6 +232,7 @@ async function save() {
 onMounted(load)
 onMounted(loadDeliveries)
 onMounted(loadReferenceStatus)
+onMounted(loadBlueskyStatus)
 onMounted(() => {
   const result = route.query.reference
   if (result === 'connected') {
@@ -296,6 +347,56 @@ onMounted(() => {
     </div>
 
     <h3 class="section-title">
+      <span class="section-title-icon"><BlueskyIcon :size="16" />Bluesky</span>
+      <InfoTip label="Direct crosspost target alongside the fediverse. Connect a Bluesky account with an app password (not your main account password) to enable it in the composer." />
+    </h3>
+    <p v-if="blueskyMessage" class="status">{{ blueskyMessage }}</p>
+
+    <template v-if="blueskyStatus?.connected">
+      <p class="follow-policy">
+        <span class="policy-badge">Connected</span>
+        @{{ blueskyStatus.handle }}
+      </p>
+      <p v-if="blueskyStatus.needs_reconnect" class="hint moderation-off-hint">
+        This connection needs to be re-established — reconnect with a fresh app password below.
+      </p>
+      <div class="delivery-actions">
+        <div class="delivery-action">
+          <button type="button" class="btn btn-ghost" :disabled="blueskyDisconnecting" @click="doDisconnectBluesky">
+            {{ blueskyDisconnecting ? 'Disconnecting…' : 'Disconnect' }}
+          </button>
+        </div>
+      </div>
+    </template>
+    <template v-else>
+      <label class="field">
+        <span>Handle</span>
+        <input v-model="blueskyHandle" type="text" placeholder="you.bsky.social" autocomplete="off" />
+      </label>
+      <label class="field">
+        <span>App password</span>
+        <input
+          v-model="blueskyAppPassword"
+          type="password"
+          placeholder="xxxx-xxxx-xxxx-xxxx"
+          autocomplete="off"
+        />
+      </label>
+      <div class="delivery-actions">
+        <div class="delivery-action">
+          <button
+            type="button"
+            class="btn"
+            :disabled="blueskyConnecting || !blueskyHandle.trim() || !blueskyAppPassword"
+            @click="doConnectBluesky"
+          >
+            {{ blueskyConnecting ? 'Connecting…' : 'Connect Bluesky' }}
+          </button>
+        </div>
+      </div>
+    </template>
+
+    <h3 class="section-title">
       Delivery
       <InfoTip label="Manually trigger federation delivery recovery actions and see each post's current delivery status." />
     </h3>
@@ -346,6 +447,11 @@ onMounted(() => {
 }
 .section-title:first-of-type {
   margin-top: 0;
+}
+.section-title-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 .field {
   display: flex;

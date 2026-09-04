@@ -9,6 +9,7 @@ import (
 	vocab "github.com/go-ap/activitypub"
 
 	"github.com/newtosh/nitpub/internal/analytics"
+	"github.com/newtosh/nitpub/internal/bluesky"
 	"github.com/newtosh/nitpub/internal/icons"
 	"github.com/newtosh/nitpub/internal/mastodon"
 	"github.com/newtosh/nitpub/internal/media"
@@ -78,6 +79,13 @@ type Handler struct {
 	// matching AdminGetAnalytics's nil-guard.
 	telemetryStore       telemetryStore
 	telemetryRegisterURL string
+	// blueskyClient, blueskyAuth back the admin-optional Bluesky
+	// crosspost connect flow (see bluesky_settings.go). Set via
+	// SetBluesky after construction, same optional-dependency pattern as
+	// icons/analytics/reference above; nil means the feature is
+	// unavailable.
+	blueskyClient *bluesky.Client
+	blueskyAuth   *bluesky.AuthStore
 }
 
 // telemetryStore is the subset of *store.Store the telemetry admin
@@ -107,6 +115,14 @@ func (h *Handler) SetReference(client *mastodon.Client, apps *mastodon.AppRegist
 	if allowInsecureHosts {
 		h.referenceValidateInstance = func(string) error { return nil }
 	}
+}
+
+// SetBluesky wires the admin-optional Bluesky crosspost connect flow. A
+// nil call (the default) leaves it unavailable — every handler in
+// bluesky_settings.go checks for that before doing anything.
+func (h *Handler) SetBluesky(client *bluesky.Client, auth *bluesky.AuthStore) {
+	h.blueskyClient = client
+	h.blueskyAuth = auth
 }
 
 func (h *Handler) referenceCallbackURL() string {
@@ -185,6 +201,11 @@ type createPostRequest struct {
 	Kind     string `json:"kind"`
 	Content  string `json:"content"`
 	Federate *bool  `json:"federate,omitempty"`
+	// Bluesky opts this post into an async Bluesky crosspost (KTD6, U5) —
+	// silently skipped if no Bluesky account is connected. Unlike Federate
+	// it has no site-wide default to fall back to: omitted/false means no
+	// crosspost.
+	Bluesky bool `json:"bluesky,omitempty"`
 	// outbox.QuoteFields carries a kind:"quote" post's structured input
 	// (R2, R3), ignored for every other kind. Its json tags are irrelevant
 	// here (unmarshal-only use), so it's embedded directly rather than
@@ -456,6 +477,7 @@ func (h *Handler) createPost(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadGateway)
 		return
 	}
+	post = h.completeBluesky(post, req.Bluesky)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	_ = json.NewEncoder(w).Encode(post)
@@ -509,6 +531,8 @@ type publishDraftRequest struct {
 	Title    string `json:"title,omitempty"`
 	Content  string `json:"content,omitempty"`
 	Federate *bool  `json:"federate,omitempty"`
+	// Bluesky mirrors createPostRequest.Bluesky (KTD6, U5).
+	Bluesky bool `json:"bluesky,omitempty"`
 }
 
 // PublishDraft handles POST /api/posts/{id}/publish — transitions an
@@ -576,6 +600,7 @@ func (h *Handler) PublishDraft(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadGateway)
 		return
 	}
+	post = h.completeBluesky(post, req.Bluesky)
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(post)
 	h.rebuildSearchIndex()

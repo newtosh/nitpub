@@ -57,6 +57,34 @@ type FederationState struct {
 	RemoteURL string `json:"remote_url,omitempty"`
 }
 
+// BlueskyState records the outcome of crossposting to Bluesky. Status is one
+// of "pending", "posted", or "error". Mirrors FederationState's shape.
+type BlueskyState struct {
+	Status    string     `json:"status"`
+	PostedAt  *time.Time `json:"posted_at,omitempty"`
+	Error     string     `json:"error,omitempty"`
+	URI       string     `json:"uri,omitempty"`
+	Truncated bool       `json:"truncated,omitempty"`
+	// PendingSince records when Status transitioned to "pending" (U5). It's
+	// the only way to detect a pending state stuck by a process restart
+	// mid-delivery — PostedAt is only set on success, so a crash between
+	// writing "pending" and Deliver's final write would otherwise leave a
+	// post pending forever with no way to tell "still in flight" from
+	// "stuck".
+	PendingSince *time.Time `json:"pending_since,omitempty"`
+}
+
+// blueskyStalePendingAfter bounds how long a "pending" Bluesky state is
+// trusted as still genuinely in flight (U5/KTD5) before it's treated as
+// stuck (e.g. a process restart mid-Deliver) and safe to retry.
+const blueskyStalePendingAfter = 10 * time.Minute
+
+// StalePending reports whether s is a "pending" state old enough that it's
+// more likely stuck than still in progress — see blueskyStalePendingAfter.
+func (s BlueskyState) StalePending() bool {
+	return s.Status == "pending" && s.PendingSince != nil && time.Since(*s.PendingSince) > blueskyStalePendingAfter
+}
+
 // Status values for Post.Status. An absent/empty Status means published —
 // every pre-existing stored post has no status key, so this keeps them
 // published with no migration or backfill required.
@@ -75,6 +103,7 @@ type Post struct {
 	CreatedAt  time.Time        `json:"created_at"`
 	UpdatedAt  *time.Time       `json:"updated_at,omitempty"`
 	Federation *FederationState `json:"federation,omitempty"`
+	Bluesky    *BlueskyState    `json:"bluesky,omitempty"`
 	// Quote holds the raw structured input for a KindQuote post, alongside
 	// Content (the same fields composed to canonical markdown by
 	// BuildQuoteContent — KTD1, KTD2). Nil for every other kind.
@@ -855,6 +884,39 @@ func (s *Service) SetFederation(slug string, state FederationState) (*Post, erro
 		}
 		stateCopy := state
 		updated.Federation = &stateCopy
+		rawPost, err := json.Marshal(updated)
+		if err != nil {
+			return err
+		}
+		return postsBucket.Put(key, rawPost)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &updated, nil
+}
+
+// SetBluesky updates Bluesky delivery metadata for a post.
+func (s *Service) SetBluesky(slug string, state BlueskyState) (*Post, error) {
+	if slug == "" {
+		return nil, fmt.Errorf("post not found")
+	}
+	key, err := s.lookupPostKey(slug)
+	if err != nil {
+		return nil, err
+	}
+	var updated Post
+	err = s.db.Update(func(tx *bolt.Tx) error {
+		postsBucket := tx.Bucket([]byte(store.BucketPosts))
+		raw := postsBucket.Get(key)
+		if raw == nil {
+			return fmt.Errorf("post not found")
+		}
+		if err := json.Unmarshal(raw, &updated); err != nil {
+			return err
+		}
+		stateCopy := state
+		updated.Bluesky = &stateCopy
 		rawPost, err := json.Marshal(updated)
 		if err != nil {
 			return err

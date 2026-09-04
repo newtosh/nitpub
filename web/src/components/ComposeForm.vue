@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { FileUp, Save, Send, Trash2, X } from '@lucide/vue'
+import { ChevronDown, FileUp, Save, Send, Trash2, X } from '@lucide/vue'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import MarkdownEditor from './MarkdownEditor.vue'
 import MarkdownBody from './MarkdownBody.vue'
@@ -7,6 +7,7 @@ import EditorTabs from './EditorTabs.vue'
 import ComposeInfoTooltip from './ComposeInfoTooltip.vue'
 import InfoTip from './InfoTip.vue'
 import MastodonIcon from './icons/MastodonIcon.vue'
+import BlueskyIcon from './icons/BlueskyIcon.vue'
 import type { Post } from '../lib/posts'
 import { postSlug } from '../lib/posts'
 import {
@@ -19,6 +20,7 @@ import {
 } from '../lib/contentKinds'
 import { federationHint } from '../lib/federationProfile'
 import { crossPostDefaultFromConfig } from '../lib/federationDelivery'
+import { fetchBlueskyStatus } from '../lib/federationAdmin'
 import { fetchSiteConfig, getCachedSiteConfig } from '../lib/site'
 import { readMarkdownFile } from '../lib/markdownFile'
 import {
@@ -56,7 +58,9 @@ type QuotePayloadFields = {
 }
 
 const emit = defineEmits<{
-  publish: [payload: { kind: string; content: string; federate: boolean } & QuotePayloadFields]
+  publish: [
+    payload: { kind: string; content: string; federate: boolean; bluesky: boolean } & QuotePayloadFields,
+  ]
   save: [payload: { kind: string; content: string } & QuotePayloadFields]
   cancel: []
   delete: []
@@ -102,6 +106,18 @@ const shareToFediverse = ref(true)
 const federateTrack = ref<HTMLButtonElement | null>(null)
 const federateThumb = ref<HTMLSpanElement | null>(null)
 const federateThumbTravel = ref(0)
+
+// Bluesky crosspost target (R1/R8/R9). shareToBluesky defaults off — unlike
+// Fediverse there's no site-wide "cross-post by default" config for it, and
+// an author must have connected an account for the option to even appear.
+const shareToBluesky = ref(false)
+// True only once GET /api/admin/bluesky/status has resolved connected — the
+// picker must never flash an unconfirmed "Bluesky" option (KTD9), so this
+// starts false and the picker renders Fediverse-only until it settles.
+const blueskyAvailable = ref(false)
+// Disclosure state (KTD9): collapsed shows the existing single Fediverse
+// slider unchanged; expanded swaps it for an explicit two-target checklist.
+const targetPickerOpen = ref(false)
 
 // The thumb (icon + label) is the whole tappable slider, not a separate
 // switch bezel — it needs to land flush against the track's opposite
@@ -488,6 +504,27 @@ onMounted(async () => {
   } finally {
     defaultLoaded.value = true
   }
+
+  // Only the new-post composer offers a crosspost target picker at all
+  // (isEdit() hides the whole toggle), so skip the status round-trip in
+  // edit mode.
+  if (!isEdit()) {
+    try {
+      const status = await fetchBlueskyStatus()
+      blueskyAvailable.value = status.connected
+    } catch {
+      blueskyAvailable.value = false
+    }
+  }
+})
+
+// The slider's measured travel distance depends on federateTrack's DOM
+// node, which unmounts (v-if) while the picker is expanded. Re-measure
+// once it's back so a resize that happened while it was hidden isn't lost.
+watch(targetPickerOpen, async (open) => {
+  if (open) return
+  await nextTick()
+  measureFederateTravel()
 })
 
 function promoteToArticle(fromNote: string) {
@@ -598,7 +635,13 @@ function submit() {
     if (isEdit()) {
       emit('save', { kind: 'quote', content: '', ...quoteFields })
     } else {
-      emit('publish', { kind: 'quote', content: '', federate: shareToFediverse.value, ...quoteFields })
+      emit('publish', {
+        kind: 'quote',
+        content: '',
+        federate: shareToFediverse.value,
+        bluesky: shareToBluesky.value,
+        ...quoteFields,
+      })
       resetQuoteFields()
       kind.value = 'note'
       openNotice.value = ''
@@ -621,7 +664,12 @@ function submit() {
     return
   }
 
-  const payload = { kind: kind.value, content, federate: shareToFediverse.value }
+  const payload = {
+    kind: kind.value,
+    content,
+    federate: shareToFediverse.value,
+    bluesky: shareToBluesky.value,
+  }
   if (isEdit()) {
     emit('save', { kind: kind.value, content })
   } else {
@@ -843,26 +891,50 @@ function submit() {
         </button>
       </div>
       <div class="form-actions-end">
-        <button
-          v-if="!isEdit() && defaultLoaded"
-          ref="federateTrack"
-          type="button"
-          class="federate-toggle"
-          :class="{ active: shareToFediverse }"
-          :aria-pressed="shareToFediverse"
-          title="Share to fediverse"
-          aria-label="Share to fediverse"
-          @click="shareToFediverse = !shareToFediverse"
-        >
-          <span
-            ref="federateThumb"
-            class="federate-thumb"
-            :style="{ transform: shareToFediverse ? `translateX(${federateThumbTravel}px)` : 'translateX(0)' }"
+        <div v-if="!isEdit() && defaultLoaded" class="target-picker">
+          <button
+            v-if="!targetPickerOpen"
+            ref="federateTrack"
+            type="button"
+            class="federate-toggle"
+            :class="{ active: shareToFediverse }"
+            :aria-pressed="shareToFediverse"
+            title="Share to fediverse"
+            aria-label="Share to fediverse"
+            @click="shareToFediverse = !shareToFediverse"
           >
-            <MastodonIcon :size="14" />
-            <span>Fediverse</span>
-          </span>
-        </button>
+            <span
+              ref="federateThumb"
+              class="federate-thumb"
+              :style="{ transform: shareToFediverse ? `translateX(${federateThumbTravel}px)` : 'translateX(0)' }"
+            >
+              <MastodonIcon :size="14" />
+              <span>Fediverse</span>
+            </span>
+          </button>
+          <div v-else class="target-list" role="group" aria-label="Crosspost targets">
+            <label class="target-checkbox">
+              <input v-model="shareToFediverse" type="checkbox" />
+              <MastodonIcon :size="14" />
+              <span>Fediverse</span>
+            </label>
+            <label v-if="blueskyAvailable" class="target-checkbox">
+              <input v-model="shareToBluesky" type="checkbox" />
+              <BlueskyIcon :size="14" />
+              <span>Bluesky</span>
+            </label>
+          </div>
+          <button
+            type="button"
+            class="target-picker-disclosure"
+            :aria-expanded="targetPickerOpen"
+            :title="targetPickerOpen ? 'Collapse crosspost targets' : 'Choose crosspost targets'"
+            :aria-label="targetPickerOpen ? 'Collapse crosspost targets' : 'Choose crosspost targets'"
+            @click="targetPickerOpen = !targetPickerOpen"
+          >
+            <ChevronDown :size="14" :stroke-width="1.75" aria-hidden="true" :class="{ flipped: targetPickerOpen }" />
+          </button>
+        </div>
         <button
           type="submit"
           class="btn btn-primary"
@@ -950,6 +1022,52 @@ label {
 }
 .federate-thumb :deep(svg) {
   flex-shrink: 0;
+}
+.target-picker {
+  display: flex;
+  align-items: stretch;
+  gap: 0.3rem;
+}
+.target-picker-disclosure {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.target-picker-disclosure:hover {
+  border-color: var(--muted);
+}
+.target-picker-disclosure :deep(svg) {
+  transition: transform 0.18s ease;
+}
+.target-picker-disclosure :deep(svg.flipped) {
+  transform: rotate(180deg);
+}
+.target-list {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+.target-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.target-checkbox input {
+  accent-color: var(--accent);
 }
 .notice {
   margin: 0;
@@ -1123,6 +1241,12 @@ label {
   .form-actions-start .btn,
   .form-actions-end .btn,
   .form-actions-end .federate-toggle {
+    flex: 1;
+  }
+  .form-actions-end .target-picker {
+    flex: 1;
+  }
+  .form-actions-end .target-picker .federate-toggle {
     flex: 1;
   }
 }
