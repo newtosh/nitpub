@@ -176,6 +176,40 @@ export function articlePreviewMarkdown(post: Post, maxLen = 480): string {
   return feedPreviewMarkdown(body, maxLen)
 }
 
+/**
+ * Feed preview for kind:"quote" posts — keeps the link line and full
+ * blockquoted excerpt intact (unlike feedPreviewMarkdown, which treats a
+ * blockquote as a rich-block truncation boundary), truncating only the
+ * trailing commentary/via text.
+ */
+export function quotePreviewMarkdown(post: Post, maxLen = 280): string {
+  const trimmed = stripCallouts(post.content).trim()
+  if (!trimmed) return ''
+  const blocks = trimmed.split(/\n\n+/)
+  // Locate the excerpt by its blockquote marker rather than assuming it's
+  // always blocks[1] — an unsanitized source-page title can embed a blank
+  // line, splitting the link line across multiple blocks and shifting the
+  // excerpt's position.
+  const excerptIndex = blocks.findIndex((b) => b.startsWith('>'))
+  const linkBlocks = excerptIndex >= 0 ? blocks.slice(0, excerptIndex) : blocks.slice(0, 1)
+  const excerptBlock = excerptIndex >= 0 ? blocks[excerptIndex] : ''
+  const rest = excerptIndex >= 0 ? blocks.slice(excerptIndex + 1) : blocks.slice(1)
+  const head = [linkBlocks.join('\n\n'), excerptBlock].filter(Boolean).join('\n\n')
+  const tail = rest.join('\n\n').trim()
+  return tail ? `${head}\n\n${truncateForFeed(tail, maxLen)}` : head
+}
+
+export function quoteIsTruncatedInPreview(post: Post, maxLen = 280): boolean {
+  const trimmed = stripCallouts(post.content).trim()
+  if (!trimmed) return false
+  const blocks = trimmed.split(/\n\n+/)
+  const excerptIndex = blocks.findIndex((b) => b.startsWith('>'))
+  const rest = excerptIndex >= 0 ? blocks.slice(excerptIndex + 1) : blocks.slice(1)
+  const tail = rest.join('\n\n').trim()
+  if (!tail) return false
+  return truncateForFeed(tail, maxLen) !== tail
+}
+
 export function noteIsTruncatedInPreview(post: Post, maxLen = 280): boolean {
   const source = (noteBody(post.content) || post.content).trim()
   if (hasLinkCardLine(source)) {

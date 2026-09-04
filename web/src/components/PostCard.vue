@@ -12,6 +12,8 @@ import {
   notePreviewMarkdown,
   noteTitle,
   postSlug,
+  quoteIsTruncatedInPreview,
+  quotePreviewMarkdown,
 } from '../lib/posts'
 import { getCachedSiteConfig } from '../lib/site'
 
@@ -27,9 +29,18 @@ const noteMaxLen = computed(() =>
 
 const isNote = computed(() => props.post.kind !== 'article')
 const titledNote = computed(() => isNote.value && !!noteTitle(props.post.content))
-const noteMarkdown = computed(() => notePreviewMarkdown(props.post, noteMaxLen.value))
+const noteMarkdown = computed(() =>
+  props.post.kind === 'quote'
+    ? quotePreviewMarkdown(props.post, noteMaxLen.value)
+    : notePreviewMarkdown(props.post, noteMaxLen.value),
+)
 const articleMarkdown = computed(() => articlePreviewMarkdown(props.post))
-const truncated = computed(() => isNote.value && noteIsTruncatedInPreview(props.post, noteMaxLen.value))
+const truncated = computed(() => {
+  if (!isNote.value) return false
+  return props.post.kind === 'quote'
+    ? quoteIsTruncatedInPreview(props.post, noteMaxLen.value)
+    : noteIsTruncatedInPreview(props.post, noteMaxLen.value)
+})
 </script>
 
 <template>

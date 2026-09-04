@@ -401,11 +401,45 @@
   overflow: hidden;
 }
 
+.markdown-body .link-card--pending {
+  min-height: 5.5rem;
+  background: linear-gradient(
+    100deg,
+    var(--surface) 40%,
+    color-mix(in srgb, var(--border) 60%, var(--surface)) 50%,
+    var(--surface) 60%
+  );
+  background-size: 250% 100%;
+  animation: link-card-shimmer 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .markdown-body .link-card--pending {
+    animation: none;
+    background: var(--surface);
+  }
+}
+
+@keyframes link-card-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+/* Fallback link stays in the DOM (and clickable) in case the unfurl fetch
+   never resolves, but is visually de-emphasized while the shimmer is
+   shown — the skeleton, not the raw URL, is the intended read. */
 .markdown-body .link-card--pending .link-card-fallback {
   display: block;
   padding: 0.85rem 1rem;
-  color: var(--accent);
+  color: transparent;
   word-break: break-all;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .markdown-body .link-card-inner:hover .link-card-title {

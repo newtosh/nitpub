@@ -112,6 +112,63 @@ func TestSafeDialContextDialsValidatedIP(t *testing.T) {
 	}
 }
 
+func TestParseHTMLTwitterOnlyFallback(t *testing.T) {
+	base, _ := url.Parse("https://wici.ai/")
+	html := `<!DOCTYPE html><html><head>
+<meta name="twitter:title" content="Twitter Title" />
+<meta name="twitter:description" content="Twitter description." />
+<meta name="twitter:image" content="https://cdn.example/tw-hero.jpg" />
+</head><body></body></html>`
+	p := parseHTML(base, []byte(html))
+	if p.Title != "Twitter Title" {
+		t.Fatalf("title = %q", p.Title)
+	}
+	if p.Description != "Twitter description." {
+		t.Fatalf("description = %q", p.Description)
+	}
+	if p.Image != "https://cdn.example/tw-hero.jpg" {
+		t.Fatalf("image = %q", p.Image)
+	}
+}
+
+func TestParseHTMLOGImageWinsOverTwitterImage(t *testing.T) {
+	base, _ := url.Parse("https://example.com")
+	html := `<!DOCTYPE html><html><head>
+<meta name="twitter:image" content="https://cdn.example/tw.jpg" />
+<meta property="og:image" content="https://cdn.example/og.jpg" />
+</head><body></body></html>`
+	p := parseHTML(base, []byte(html))
+	if p.Image != "https://cdn.example/og.jpg" {
+		t.Fatalf("image = %q, want og:image to win", p.Image)
+	}
+}
+
+func TestParseHTMLOGWinsOverTwitterForAllFields(t *testing.T) {
+	base, _ := url.Parse("https://example.com")
+	html := `<!DOCTYPE html><html><head>
+<meta name="twitter:title" content="Twitter Title" />
+<meta name="twitter:description" content="Twitter description." />
+<meta property="og:title" content="OG Title" />
+<meta property="og:description" content="OG description." />
+</head><body></body></html>`
+	p := parseHTML(base, []byte(html))
+	if p.Title != "OG Title" {
+		t.Fatalf("title = %q, want og:title to win", p.Title)
+	}
+	if p.Description != "OG description." {
+		t.Fatalf("description = %q, want og:description to win", p.Description)
+	}
+}
+
+func TestParseHTMLNoImageStaysEmpty(t *testing.T) {
+	base, _ := url.Parse("https://example.com")
+	html := `<!DOCTYPE html><html><head><title>No image here</title></head></html>`
+	p := parseHTML(base, []byte(html))
+	if p.Image != "" {
+		t.Fatalf("image = %q, want empty", p.Image)
+	}
+}
+
 func TestParseHTMLDescriptionFallback(t *testing.T) {
 	base, _ := url.Parse("https://example.com")
 	html := `<html><head><meta name="description" content="Plain desc" /></head></html>`
