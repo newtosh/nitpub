@@ -65,6 +65,24 @@ type BlueskyState struct {
 	Error     string     `json:"error,omitempty"`
 	URI       string     `json:"uri,omitempty"`
 	Truncated bool       `json:"truncated,omitempty"`
+	// PendingSince records when Status transitioned to "pending" (U5). It's
+	// the only way to detect a pending state stuck by a process restart
+	// mid-delivery — PostedAt is only set on success, so a crash between
+	// writing "pending" and Deliver's final write would otherwise leave a
+	// post pending forever with no way to tell "still in flight" from
+	// "stuck".
+	PendingSince *time.Time `json:"pending_since,omitempty"`
+}
+
+// blueskyStalePendingAfter bounds how long a "pending" Bluesky state is
+// trusted as still genuinely in flight (U5/KTD5) before it's treated as
+// stuck (e.g. a process restart mid-Deliver) and safe to retry.
+const blueskyStalePendingAfter = 10 * time.Minute
+
+// StalePending reports whether s is a "pending" state old enough that it's
+// more likely stuck than still in progress — see blueskyStalePendingAfter.
+func (s BlueskyState) StalePending() bool {
+	return s.Status == "pending" && s.PendingSince != nil && time.Since(*s.PendingSince) > blueskyStalePendingAfter
 }
 
 // Status values for Post.Status. An absent/empty Status means published —

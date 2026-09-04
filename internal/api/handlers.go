@@ -201,6 +201,11 @@ type createPostRequest struct {
 	Kind     string `json:"kind"`
 	Content  string `json:"content"`
 	Federate *bool  `json:"federate,omitempty"`
+	// Bluesky opts this post into an async Bluesky crosspost (KTD6, U5) —
+	// silently skipped if no Bluesky account is connected. Unlike Federate
+	// it has no site-wide default to fall back to: omitted/false means no
+	// crosspost.
+	Bluesky bool `json:"bluesky,omitempty"`
 	// outbox.QuoteFields carries a kind:"quote" post's structured input
 	// (R2, R3), ignored for every other kind. Its json tags are irrelevant
 	// here (unmarshal-only use), so it's embedded directly rather than
@@ -472,6 +477,7 @@ func (h *Handler) createPost(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadGateway)
 		return
 	}
+	post = h.completeBluesky(post, req.Bluesky)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	_ = json.NewEncoder(w).Encode(post)
@@ -525,6 +531,8 @@ type publishDraftRequest struct {
 	Title    string `json:"title,omitempty"`
 	Content  string `json:"content,omitempty"`
 	Federate *bool  `json:"federate,omitempty"`
+	// Bluesky mirrors createPostRequest.Bluesky (KTD6, U5).
+	Bluesky bool `json:"bluesky,omitempty"`
 }
 
 // PublishDraft handles POST /api/posts/{id}/publish — transitions an
@@ -592,6 +600,7 @@ func (h *Handler) PublishDraft(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadGateway)
 		return
 	}
+	post = h.completeBluesky(post, req.Bluesky)
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(post)
 	h.rebuildSearchIndex()
