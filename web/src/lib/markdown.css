@@ -435,7 +435,6 @@
 .markdown-body .link-card--pending .link-card-fallback {
   display: block;
   padding: 0.85rem 1rem;
-  min-height: 5.5rem;
   color: transparent;
   word-break: break-all;
 }
