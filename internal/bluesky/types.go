@@ -34,4 +34,9 @@ type PostRecord struct {
 	Text      string      `json:"text"`
 	CreatedAt time.Time   `json:"createdAt"`
 	Embed     interface{} `json:"embed,omitempty"`
+	// Facets marks byte ranges of Text as rich-text features (e.g. a
+	// tappable link) — see Facet's doc comment in content.go for why
+	// plain text needs this. Callers pass BuildPostText's Facets slice
+	// through directly.
+	Facets []Facet `json:"facets,omitempty"`
 }
