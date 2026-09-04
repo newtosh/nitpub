@@ -9,6 +9,7 @@ import (
 	vocab "github.com/go-ap/activitypub"
 
 	"github.com/newtosh/nitpub/internal/analytics"
+	"github.com/newtosh/nitpub/internal/bluesky"
 	"github.com/newtosh/nitpub/internal/icons"
 	"github.com/newtosh/nitpub/internal/mastodon"
 	"github.com/newtosh/nitpub/internal/media"
@@ -78,6 +79,13 @@ type Handler struct {
 	// matching AdminGetAnalytics's nil-guard.
 	telemetryStore       telemetryStore
 	telemetryRegisterURL string
+	// blueskyClient, blueskyAuth back the admin-optional Bluesky
+	// crosspost connect flow (see bluesky_settings.go). Set via
+	// SetBluesky after construction, same optional-dependency pattern as
+	// icons/analytics/reference above; nil means the feature is
+	// unavailable.
+	blueskyClient *bluesky.Client
+	blueskyAuth   *bluesky.AuthStore
 }
 
 // telemetryStore is the subset of *store.Store the telemetry admin
@@ -107,6 +115,14 @@ func (h *Handler) SetReference(client *mastodon.Client, apps *mastodon.AppRegist
 	if allowInsecureHosts {
 		h.referenceValidateInstance = func(string) error { return nil }
 	}
+}
+
+// SetBluesky wires the admin-optional Bluesky crosspost connect flow. A
+// nil call (the default) leaves it unavailable — every handler in
+// bluesky_settings.go checks for that before doing anything.
+func (h *Handler) SetBluesky(client *bluesky.Client, auth *bluesky.AuthStore) {
+	h.blueskyClient = client
+	h.blueskyAuth = auth
 }
 
 func (h *Handler) referenceCallbackURL() string {
