@@ -437,6 +437,9 @@
   padding: 0.85rem 1rem;
   color: transparent;
   word-break: break-all;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .markdown-body .link-card-inner:hover .link-card-title {
