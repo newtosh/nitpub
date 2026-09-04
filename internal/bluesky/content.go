@@ -68,13 +68,17 @@ func buildNoteText(post *outbox.Post, maxGraphemes int) BlueskyPostText {
 	if uniseg.GraphemeClusterCount(text) <= maxGraphemes {
 		return BlueskyPostText{Text: text, Facets: facets}
 	}
-	return truncateWithReadMoreLink(text, post.ID, maxGraphemes)
+	return truncateWithReadMoreLink(text, facets, post.ID, maxGraphemes)
 }
 
 // truncateWithReadMoreLink truncates text to leave room for a trailing
-// "Read more: <url>" line, and facets that URL (R4). Any facets found
-// within the truncated-away tail are simply dropped along with it.
-func truncateWithReadMoreLink(text, url string, maxGraphemes int) BlueskyPostText {
+// "Read more: <url>" line, and facets that URL (R4). facets is the original
+// text's link facets — any whose range falls entirely within the kept
+// prefix survive truncation (a link near the start of a long note stays
+// tappable); a facet whose range is only partially or fully in the
+// truncated-away tail is dropped along with it, since a partial link isn't
+// tappable to anything meaningful.
+func truncateWithReadMoreLink(text string, facets []Facet, url string, maxGraphemes int) BlueskyPostText {
 	const label = "\n\nRead more: "
 	suffix := label + url
 	budget := maxGraphemes - uniseg.GraphemeClusterCount(suffix)
@@ -83,15 +87,23 @@ func truncateWithReadMoreLink(text, url string, maxGraphemes int) BlueskyPostTex
 	}
 	body := strings.TrimRight(truncateToGraphemes(text, budget), " \t\n\r")
 
+	kept := make([]Facet, 0, len(facets)+1)
+	for _, f := range facets {
+		if f.Index.ByteEnd <= len(body) {
+			kept = append(kept, f)
+		}
+	}
+
 	full := body + suffix
 	start := len(body) + len(label)
 	end := start + len(url)
+	kept = append(kept, Facet{
+		Index:    FacetIndex{ByteStart: start, ByteEnd: end},
+		Features: []FacetFeature{{Type: facetLinkType, URI: url}},
+	})
 	return BlueskyPostText{
-		Text: full,
-		Facets: []Facet{{
-			Index:    FacetIndex{ByteStart: start, ByteEnd: end},
-			Features: []FacetFeature{{Type: facetLinkType, URI: url}},
-		}},
+		Text:   full,
+		Facets: kept,
 	}
 }
 

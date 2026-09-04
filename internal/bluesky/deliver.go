@@ -147,6 +147,26 @@ func externalLinkURL(post *outbox.Post, text BlueskyPostText) string {
 	return post.ID
 }
 
+// blueskyWebURL converts CreateRecord's at://<did>/app.bsky.feed.post/<rkey>
+// URI into a browsable https://bsky.app/... link — the raw at:// form isn't
+// a URL a browser can open, so storing it verbatim (the original shape of
+// this function, before review caught it) made the "posted" badge's link
+// silently dead. Falls back to the at:// URI unchanged if it doesn't match
+// the expected shape, rather than producing a broken bsky.app link.
+func blueskyWebURL(atURI, did string) string {
+	const prefix = "at://"
+	rest := strings.TrimPrefix(atURI, prefix)
+	if rest == atURI {
+		return atURI
+	}
+	parts := strings.Split(rest, "/")
+	if len(parts) != 3 || parts[1] != feedPostCollection {
+		return atURI
+	}
+	rkey := parts[2]
+	return fmt.Sprintf("https://bsky.app/profile/%s/post/%s", did, rkey)
+}
+
 // isTooLongError reports whether err looks like Bluesky rejecting a record
 // for exceeding its server-side text length limit. Bluesky's exact wording
 // isn't documented as a stable contract, so this matches defensively on the
@@ -259,7 +279,7 @@ func Deliver(ctx context.Context, client *Client, authStore *AuthStore, outboxSv
 	_, err = outboxSvc.SetBluesky(slug, outbox.BlueskyState{
 		Status:    "posted",
 		PostedAt:  &now,
-		URI:       uri,
+		URI:       blueskyWebURL(uri, auth.DID),
 		Truncated: truncated,
 	})
 	return err

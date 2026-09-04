@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"sync/atomic"
 	"testing"
 
@@ -137,14 +139,102 @@ func TestDeliver_ExternalEmbedFromLinkPreview(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Bluesky == nil || got.Bluesky.Status != "posted" || got.Bluesky.URI == "" {
-		t.Fatalf("expected posted state, got %+v", got.Bluesky)
+	// A browsable https://bsky.app/... link, not the raw at:// URI
+	// CreateRecord returns — see blueskyWebURL's doc comment for why.
+	wantURI := "https://bsky.app/profile/did:plc:test/post/1"
+	if got.Bluesky == nil || got.Bluesky.Status != "posted" || got.Bluesky.URI != wantURI {
+		t.Fatalf("expected posted state with URI %q, got %+v", wantURI, got.Bluesky)
 	}
 }
 
 // TestDeliver_FacetsWiredToRecord confirms BuildPostText's link facets
 // actually reach PostRecord.Facets in the request Bluesky receives — a link
 // with no facet renders as inert plain text, not a tappable link.
+// TestAssertSafeImageURL directly exercises the SSRF guard on image fetch
+// — deliverOnce's own tests all bypass it via stubImageFetch (necessarily,
+// to reach an httptest.Server), so nothing else in this file proves the
+// guard itself still rejects a private/loopback target. Mirrors
+// internal/linkpreview/unfurl_test.go's equivalent coverage for the
+// pattern this package deliberately duplicates (see deliver.go's comment
+// on why it isn't imported instead).
+func TestAssertSafeImageURL(t *testing.T) {
+	cases := []struct {
+		name    string
+		rawURL  string
+		wantErr bool
+	}{
+		{"public https allowed", "https://example.com/image.jpg", false},
+		{"loopback blocked", "http://127.0.0.1/image.jpg", true},
+		{"dot-localhost blocked", "http://foo.localhost/image.jpg", true},
+		{"non-http-scheme blocked", "ftp://example.com/image.jpg", true},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			u, err := url.Parse(c.rawURL)
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = assertSafeImageURL(u)
+			if c.wantErr && err == nil {
+				t.Fatalf("assertSafeImageURL(%q): expected error, got nil", c.rawURL)
+			}
+			if !c.wantErr && err != nil {
+				t.Fatalf("assertSafeImageURL(%q): unexpected error: %v", c.rawURL, err)
+			}
+		})
+	}
+}
+
+// TestSafeImageDialContextRejectsReboundPrivateIP mirrors
+// internal/linkpreview/unfurl_test.go's TestSafeDialContextRejectsReboundPrivateIP
+// — proves the dial-time re-check (not just the pre-flight assertSafeImageURL)
+// closes the DNS-rebinding TOCTOU gap for image fetches too.
+func TestSafeImageDialContextRejectsReboundPrivateIP(t *testing.T) {
+	orig := lookupImageIP
+	defer func() { lookupImageIP = orig }()
+
+	calls := 0
+	lookupImageIP = func(host string) ([]net.IP, error) {
+		calls++
+		if calls == 1 {
+			return []net.IP{net.ParseIP("93.184.216.34")}, nil // public
+		}
+		return []net.IP{net.ParseIP("127.0.0.1")}, nil // rebound to private
+	}
+
+	u, err := url.Parse("http://rebind.example.test/image.jpg")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := assertSafeImageURL(u); err != nil {
+		t.Fatalf("expected pre-flight check against the public IP to pass: %v", err)
+	}
+
+	conn, err := safeImageDialContext(context.Background(), "tcp", "rebind.example.test:80")
+	if err == nil {
+		conn.Close()
+		t.Fatal("expected safeImageDialContext to reject the rebound private IP")
+	}
+}
+
+func TestBlueskyWebURL(t *testing.T) {
+	cases := []struct {
+		name, atURI, did, want string
+	}{
+		{"well formed", "at://did:plc:test/app.bsky.feed.post/abc123", "did:plc:test", "https://bsky.app/profile/did:plc:test/post/abc123"},
+		{"non-at-uri passthrough", "https://example.com/not-an-at-uri", "did:plc:test", "https://example.com/not-an-at-uri"},
+		{"wrong collection passthrough", "at://did:plc:test/app.bsky.feed.like/abc123", "did:plc:test", "at://did:plc:test/app.bsky.feed.like/abc123"},
+		{"malformed passthrough", "at://did:plc:test", "did:plc:test", "at://did:plc:test"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := blueskyWebURL(c.atURI, c.did); got != c.want {
+				t.Fatalf("blueskyWebURL(%q, %q) = %q, want %q", c.atURI, c.did, got, c.want)
+			}
+		})
+	}
+}
+
 func TestDeliver_FacetsWiredToRecord(t *testing.T) {
 	svc, authStore := newDeliverTestSvc(t)
 	seedAuth(t, authStore, "refresh-1")

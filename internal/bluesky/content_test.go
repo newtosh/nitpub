@@ -73,6 +73,35 @@ func TestBuildPostText_NoteOverBudgetTruncatesWithReadMoreLink(t *testing.T) {
 	}
 }
 
+func TestBuildPostText_NoteOverBudgetKeepsEarlyLinkFacet(t *testing.T) {
+	// A link inside the kept prefix must stay tappable after truncation —
+	// only facets in the truncated-away tail should be dropped.
+	link := "[nitpub](https://nit.pub)"
+	long := "Check out " + link + " today. " + strings.Repeat("a very long sentence that keeps going on and on. ", 20)
+	post := &outbox.Post{ID: "https://nit.pub/posts/xyz", Kind: outbox.KindNote, Content: long}
+	got, err := BuildPostText(post, MaxGraphemes)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if uniCount(got.Text) > MaxGraphemes {
+		t.Fatalf("truncated text still over budget: %d graphemes", uniCount(got.Text))
+	}
+	if len(got.Facets) != 2 {
+		t.Fatalf("expected the early link facet plus the read-more facet, got %+v", got.Facets)
+	}
+	linkFacet := got.Facets[0]
+	if linkFacet.Features[0].URI != "https://nit.pub" {
+		t.Fatalf("first facet should be the early link, got %+v", linkFacet)
+	}
+	if got.Text[linkFacet.Index.ByteStart:linkFacet.Index.ByteEnd] != "https://nit.pub" {
+		t.Fatalf("early link facet byte range doesn't point at the URL: %q", got.Text[linkFacet.Index.ByteStart:linkFacet.Index.ByteEnd])
+	}
+	readMoreFacet := got.Facets[1]
+	if got.Text[readMoreFacet.Index.ByteStart:readMoreFacet.Index.ByteEnd] != post.ID {
+		t.Fatalf("read-more facet byte range doesn't point at the post URL: %q", got.Text[readMoreFacet.Index.ByteStart:readMoreFacet.Index.ByteEnd])
+	}
+}
+
 func TestBuildPostText_ArticleAlwaysExcerptAndLinkNeverFullText(t *testing.T) {
 	shortArticle := "My Title\n\nJust one short paragraph of body text."
 	longArticle := "My Title\n\n" + strings.Repeat("This article body paragraph goes on for a very long time indeed. ", 50)
