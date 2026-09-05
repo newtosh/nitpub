@@ -216,8 +216,23 @@ function insertIcon(name: string) {
   })
 }
 
+// Grammar-checker extensions (ProWritingAid, Grammarly) apply a suggestion
+// by reassigning the textarea's whole `.value` rather than editing in
+// place — and setting `.value` natively resets scrollTop to 0, regardless
+// of framework. We can't stop the extension from doing that, so track the
+// last real scroll position ourselves and restore it right after.
+let lastScrollTop = 0
+function onTextareaScroll(event: Event) {
+  lastScrollTop = (event.target as HTMLTextAreaElement).scrollTop
+}
 function onTextareaInput() {
   detectIconTrigger()
+  const el = textarea.value
+  if (el && el.scrollTop === 0 && lastScrollTop > 0) {
+    requestAnimationFrame(() => {
+      el.scrollTop = lastScrollTop
+    })
+  }
 }
 
 function onKeydown(event: KeyboardEvent) {
@@ -368,6 +383,7 @@ function onPaste(event: ClipboardEvent) {
         @paste="onPaste"
         @keydown="onKeydown"
         @input="onTextareaInput"
+        @scroll="onTextareaScroll"
         @focus="onTextareaFocus"
         @click="detectIconTrigger"
         @blur="closeIconAutocomplete"
