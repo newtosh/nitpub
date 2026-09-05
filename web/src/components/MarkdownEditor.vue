@@ -84,11 +84,47 @@ function focusTextarea() {
   requestAnimationFrame(() => textarea.value?.focus())
 }
 
+// Replaces [start, end) with `replacement` via the browser's real edit
+// command instead of reassigning the whole textarea .value — a direct
+// `.value =` (what every toolbar/icon action used to do) silently wipes
+// the native undo stack, so Ctrl+Z stopped working the moment you touched
+// a toolbar button. execCommand runs through the same path native typing
+// does, so undo/redo keeps working. Falls back to the old whole-value
+// assignment if execCommand is ever unavailable (still broadly supported
+// for textareas despite being nominally deprecated).
+function execReplace(start: number, end: number, replacement: string): boolean {
+  const el = textarea.value
+  if (!el) return false
+  el.focus()
+  el.setSelectionRange(start, end)
+  if (document.execCommand('insertText', false, replacement)) return true
+  el.value = el.value.slice(0, start) + replacement + el.value.slice(end)
+  model.value = el.value
+  return false
+}
+
+// Diffs against `el.value` (DOM ground truth), not `model.value` — the
+// caller's `start`/`end` selection offsets are DOM-native too (from
+// `el.selectionStart`/`selectionEnd`), so the "before" text must be the
+// same string they index into. `model.value` is usually in sync via
+// v-model, but treating it as authoritative here would silently corrupt
+// the edit on any transient divergence between the two.
 function applyEdit(result: { text: string; selStart: number; selEnd: number }) {
-  model.value = result.text
+  const el = textarea.value
+  if (!el) return
+  const oldText = el.value
+  const newText = result.text
+  let start = 0
+  const maxPrefix = Math.min(oldText.length, newText.length)
+  while (start < maxPrefix && oldText[start] === newText[start]) start++
+  let oldEnd = oldText.length
+  let newEnd = newText.length
+  while (oldEnd > start && newEnd > start && oldText[oldEnd - 1] === newText[newEnd - 1]) {
+    oldEnd--
+    newEnd--
+  }
+  execReplace(start, oldEnd, newText.slice(start, newEnd))
   requestAnimationFrame(() => {
-    const el = textarea.value
-    if (!el) return
     el.focus()
     el.setSelectionRange(result.selStart, result.selEnd)
   })
@@ -97,16 +133,15 @@ function applyEdit(result: { text: string; selStart: number; selEnd: number }) {
 function withSelection(fn: (text: string, start: number, end: number) => ReturnType<typeof toggleWrap>) {
   const el = textarea.value
   if (!el) return
-  applyEdit(fn(model.value, el.selectionStart, el.selectionEnd))
+  applyEdit(fn(el.value, el.selectionStart, el.selectionEnd))
 }
 
 function insertLine(prefix: string) {
   const el = textarea.value
   if (!el) return
   const start = el.selectionStart
-  const before = model.value.lastIndexOf('\n', start - 1) + 1
-  const next = model.value.slice(0, before) + prefix + model.value.slice(before)
-  model.value = next
+  const before = el.value.lastIndexOf('\n', start - 1) + 1
+  execReplace(before, before, prefix)
   requestAnimationFrame(() => {
     el.focus()
     const cursor = start + prefix.length
@@ -153,8 +188,8 @@ function insertBlock(block: string) {
   const el = textarea.value
   if (!el) return
   const start = el.selectionStart
-  const prefix = start > 0 && model.value[start - 1] !== '\n' ? '\n\n' : '\n'
-  model.value = model.value.slice(0, start) + prefix + block + '\n' + model.value.slice(start)
+  const prefix = start > 0 && el.value[start - 1] !== '\n' ? '\n\n' : '\n'
+  execReplace(start, start, prefix + block + '\n')
   focusTextarea()
 }
 
@@ -174,7 +209,7 @@ async function detectIconTrigger() {
   const el = textarea.value
   if (!el) return
   const cursor = el.selectionStart
-  const before = model.value.slice(0, cursor)
+  const before = el.value.slice(0, cursor)
   const match = before.match(iconTriggerRe)
   if (!match) {
     closeIconAutocomplete()
@@ -207,7 +242,7 @@ function insertIcon(name: string) {
   if (!el) return
   const cursor = el.selectionStart
   const snippet = `:${name}: `
-  model.value = model.value.slice(0, iconTriggerStart) + snippet + model.value.slice(cursor)
+  execReplace(iconTriggerStart, cursor, snippet)
   closeIconAutocomplete()
   requestAnimationFrame(() => {
     el.focus()
@@ -308,7 +343,7 @@ async function onImageSelected(event: Event) {
     const el = textarea.value
     const start = el?.selectionStart ?? model.value.length
     const snippet = `![${alt}](${data.url})`
-    model.value = model.value.slice(0, start) + snippet + model.value.slice(start)
+    execReplace(start, start, snippet)
     focusTextarea()
   } catch {
     uploadError.value = 'Upload failed'
