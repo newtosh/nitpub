@@ -229,8 +229,13 @@ function onTextareaInput() {
   detectIconTrigger()
   const el = textarea.value
   if (el && el.scrollTop === 0 && lastScrollTop > 0) {
+    // Double rAF: the extension may apply its own post-edit scroll
+    // adjustment on the same frame our first callback would run in —
+    // waiting an extra paint lets our restore land after it, not before.
     requestAnimationFrame(() => {
-      el.scrollTop = lastScrollTop
+      requestAnimationFrame(() => {
+        el.scrollTop = lastScrollTop
+      })
     })
   }
 }
