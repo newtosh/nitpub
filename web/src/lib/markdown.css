@@ -582,7 +582,11 @@
   border: none;
   padding: 1rem;
   font: inherit;
-  font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, monospace;
+  /* Was hardcoded to a monospace stack regardless of theme — this is a
+     markdown prose editor, not a code editor, and the monospace font made
+     grammar-checker extensions (ProWritingAid, Grammarly) treat the field
+     as code and skip it entirely. */
+  font-family: var(--font-sans);
   /* iOS Safari auto-zooms on focus when an input's font-size is under 16px.
      This selector's specificity matches MarkdownEditor.vue's own scoped
      `textarea { font-size: 1rem }` rule, so whichever loads later in the
