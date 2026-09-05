@@ -217,27 +217,33 @@ function insertIcon(name: string) {
 }
 
 // Grammar-checker extensions (ProWritingAid, Grammarly) apply a suggestion
-// by reassigning the textarea's whole `.value` rather than editing in
-// place — and setting `.value` natively resets scrollTop to 0, regardless
-// of framework. We can't stop the extension from doing that, so track the
-// last real scroll position ourselves and restore it right after.
-let lastScrollTop = 0
-function onTextareaScroll(event: Event) {
-  lastScrollTop = (event.target as HTMLTextAreaElement).scrollTop
+// as a standard `insertReplacementText` InputEvent — the same inputType
+// browsers use for native spell-check corrections (MDN: "a replacement
+// string... for text or a control input"). That's a reliable, spec-backed
+// signal, unlike guessing at side effects of however the extension writes
+// the new value in. Capture cursor/scroll state just before the edit
+// lands (beforeinput), then restore the cursor to where the replacement
+// actually ended (old position shifted by the length delta) and put the
+// scroll position back — extensions don't reliably preserve either.
+let preReplace: { scrollTop: number; selectionEnd: number; length: number } | null = null
+function onTextareaBeforeInput(event: InputEvent) {
+  if (event.inputType !== 'insertReplacementText') return
+  const el = textarea.value
+  if (!el) return
+  preReplace = { scrollTop: el.scrollTop, selectionEnd: el.selectionEnd, length: el.value.length }
 }
-function onTextareaInput() {
+function onTextareaInput(event: Event) {
   detectIconTrigger()
   const el = textarea.value
-  if (el && el.scrollTop === 0 && lastScrollTop > 0) {
-    // Double rAF: the extension may apply its own post-edit scroll
-    // adjustment on the same frame our first callback would run in —
-    // waiting an extra paint lets our restore land after it, not before.
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        el.scrollTop = lastScrollTop
-      })
-    })
-  }
+  const pre = preReplace
+  preReplace = null
+  if (!el || !pre || (event as InputEvent).inputType !== 'insertReplacementText') return
+  const delta = el.value.length - pre.length
+  const cursor = Math.min(el.value.length, Math.max(0, pre.selectionEnd + delta))
+  requestAnimationFrame(() => {
+    el.setSelectionRange(cursor, cursor)
+    el.scrollTop = pre.scrollTop
+  })
 }
 
 function onKeydown(event: KeyboardEvent) {
@@ -387,8 +393,8 @@ function onPaste(event: ClipboardEvent) {
         @dragover.prevent
         @paste="onPaste"
         @keydown="onKeydown"
+        @beforeinput="onTextareaBeforeInput"
         @input="onTextareaInput"
-        @scroll="onTextareaScroll"
         @focus="onTextareaFocus"
         @click="detectIconTrigger"
         @blur="closeIconAutocomplete"
