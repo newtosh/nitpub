@@ -170,8 +170,7 @@ function quoteBlockquote(excerpt: string): string {
 
 const quoteStitchedContent = computed(() => {
   const sourceUrl = quoteSourceUrl.value.trim()
-  const excerpt = quoteExcerpt.value.trim()
-  if (!sourceUrl || !excerpt) return ''
+  if (!sourceUrl) return ''
   let linkText = quoteLinkTitle.value.trim()
   if (!linkText) {
     linkText = sourceUrl
@@ -183,7 +182,9 @@ const quoteStitchedContent = computed(() => {
       // BuildQuoteContent does when url.Parse fails.
     }
   }
-  let out = `[${escapeMarkdownLinkText(linkText)}](${sourceUrl})\n\n${quoteBlockquote(excerpt)}`
+  let out = `[${escapeMarkdownLinkText(linkText)}](${sourceUrl})`
+  const excerpt = quoteExcerpt.value.trim()
+  if (excerpt) out += `\n\n${quoteBlockquote(excerpt)}`
   const commentary = quoteCommentary.value.trim()
   if (commentary) out += `\n\n${commentary}`
   const via = quoteVia.value.trim()
@@ -579,19 +580,14 @@ function submit() {
     // that's already been submitted.
     quoteFetchToken++
     const sourceUrl = quoteSourceUrl.value.trim()
-    const excerpt = quoteExcerpt.value.trim()
     if (!sourceUrl) {
       clientError.value = 'Source URL is required'
-      return
-    }
-    if (!excerpt) {
-      clientError.value = 'Excerpt is required'
       return
     }
     const quoteFields = {
       source_url: sourceUrl,
       title: quoteLinkTitle.value.trim(),
-      excerpt,
+      excerpt: quoteExcerpt.value.trim(),
       commentary: quoteCommentary.value.trim(),
       via: quoteVia.value.trim(),
     }
@@ -759,7 +755,7 @@ function submit() {
             />
           </label>
           <label class="quote-field" for="quote-excerpt">
-            Excerpt
+            <span class="quote-field-label">Excerpt <InfoTip label="Optional — the quoted text from the source." /></span>
             <MarkdownEditor
               id="quote-excerpt"
               v-model="quoteExcerpt"
@@ -798,7 +794,7 @@ function submit() {
           <template v-if="quoteStitchedContent">
             <MarkdownBody :content="quoteStitchedContent" :inline-link-cards="true" />
           </template>
-          <p v-else class="status">Add a source URL and excerpt to preview the full post.</p>
+          <p v-else class="status">Add a source URL to preview the full post.</p>
         </div>
       </div>
     </template>
