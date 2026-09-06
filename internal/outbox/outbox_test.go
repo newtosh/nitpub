@@ -879,10 +879,21 @@ func TestBuildQuoteContentRequiresSourceURL(t *testing.T) {
 	}
 }
 
-func TestBuildQuoteContentRequiresExcerpt(t *testing.T) {
-	_, err := BuildQuoteContent(QuoteFields{SourceURL: "https://example.com"})
-	if err == nil {
-		t.Fatal("expected error for missing Excerpt")
+func TestBuildQuoteContentOmitsBlankExcerpt(t *testing.T) {
+	fields := QuoteFields{
+		SourceURL:  "https://example.com/article",
+		Commentary: "My take on this.",
+	}
+	got, err := BuildQuoteContent(fields)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "[example.com](https://example.com/article)\n\nMy take on this."
+	if got != want {
+		t.Fatalf("BuildQuoteContent =\n%q\nwant\n%q", got, want)
+	}
+	if strings.Contains(got, ">") {
+		t.Fatal("expected no blockquote when Excerpt is blank")
 	}
 }
 

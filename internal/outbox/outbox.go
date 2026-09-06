@@ -81,25 +81,25 @@ type Post struct {
 	Quote *QuoteFields `json:"quote,omitempty"`
 }
 
-// QuoteFields captures a quote post's structured input: a source link, the
-// quoted excerpt, optional commentary, and an optional via/hat-tip
-// attribution. SourceURL and Excerpt are required (BuildQuoteContent
-// enforces it); Title, Commentary, and Via are optional (R2, R3). Title
+// QuoteFields captures a quote post's structured input: a source link, an
+// optional quoted excerpt, optional commentary, and an optional via/hat-tip
+// attribution. Only SourceURL is required (BuildQuoteContent enforces it);
+// Title, Excerpt, Commentary, and Via are all optional (R2, R3). Title
 // carries the auto-fetched (or manually typed) page title so it becomes
 // the actual published link text — see BuildQuoteContent.
 type QuoteFields struct {
 	SourceURL  string `json:"source_url"`
 	Title      string `json:"title,omitempty"`
-	Excerpt    string `json:"excerpt"`
+	Excerpt    string `json:"excerpt,omitempty"`
 	Commentary string `json:"commentary,omitempty"`
 	Via        string `json:"via,omitempty"`
 }
 
 // BuildQuoteContent composes QuoteFields into the canonical quote-post
 // markdown, in a fixed order so every quote post renders identically (R4,
-// KTD2): a linked source, a blockquoted excerpt, an optional commentary
-// paragraph, and an optional via line. Commentary and Via are omitted
-// entirely when blank — never rendered as an empty line.
+// KTD2): a linked source, an optional blockquoted excerpt, an optional
+// commentary paragraph, and an optional via line. Excerpt, Commentary, and
+// Via are omitted entirely when blank — never rendered as an empty line.
 //
 // The link text is Title when set (R3: the auto-fetched or manually typed
 // page title), falling back to the source URL's host — mirroring the
@@ -110,9 +110,6 @@ func BuildQuoteContent(f QuoteFields) (string, error) {
 	excerpt := strings.TrimSpace(f.Excerpt)
 	if sourceURL == "" {
 		return "", fmt.Errorf("source URL is required")
-	}
-	if excerpt == "" {
-		return "", fmt.Errorf("excerpt is required")
 	}
 	parsedURL, err := url.Parse(sourceURL)
 	if err != nil || (parsedURL.Scheme != "http" && parsedURL.Scheme != "https") || parsedURL.Host == "" {
@@ -125,7 +122,10 @@ func BuildQuoteContent(f QuoteFields) (string, error) {
 	}
 
 	var b strings.Builder
-	fmt.Fprintf(&b, "[%s](%s)\n\n%s", escapeMarkdownLinkText(linkText), sourceURL, quoteBlockquote(excerpt))
+	fmt.Fprintf(&b, "[%s](%s)", escapeMarkdownLinkText(linkText), sourceURL)
+	if excerpt != "" {
+		fmt.Fprintf(&b, "\n\n%s", quoteBlockquote(excerpt))
+	}
 	if commentary := strings.TrimSpace(f.Commentary); commentary != "" {
 		fmt.Fprintf(&b, "\n\n%s", commentary)
 	}
