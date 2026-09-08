@@ -44,7 +44,7 @@ const truncated = computed(() => {
 </script>
 
 <template>
-  <article class="post-card" :class="{ note: isNote, article: !isNote }">
+  <article class="post-card" :class="{ note: isNote, quote: post.kind === 'quote', article: !isNote }">
     <div class="card-header">
       <span class="kind">{{ post.kind }}</span>
       <div class="card-header-side">
@@ -92,10 +92,31 @@ const truncated = computed(() => {
 .post-card:last-child {
   border-bottom: none;
 }
-.post-card.note {
-  border-left: 3px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+.post-card.note,
+.post-card.quote {
+  position: relative;
   padding-left: 1rem;
   margin-left: -0.15rem;
+  --bar-a: color-mix(in srgb, var(--accent) 65%, var(--border));
+  --bar-b: color-mix(in srgb, var(--accent) 30%, var(--border));
+}
+/* Note and quote both get a left-edge accent bar, but as opposite-direction
+   gradients rather than the same flat color — a plain hue swap (e.g. accent
+   vs warn/danger) isn't reliably distinct across every theme (some pair an
+   orange accent with an orange warn), so the two kinds are told apart by
+   gradient direction instead, which can't collide regardless of palette. */
+.post-card.note::before,
+.post-card.quote::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: linear-gradient(180deg, var(--bar-a), var(--bar-b));
+}
+.post-card.quote::before {
+  background: linear-gradient(0deg, var(--bar-a), var(--bar-b));
 }
 .card-header {
   display: flex;
