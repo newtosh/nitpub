@@ -267,12 +267,22 @@ function resetQuoteFields() {
   quoteFetchToken++
 }
 
+// Tracks which post's content is currently live in the note/article
+// fields — `applyPost` re-fires on every reassignment of the `post` prop,
+// including the echo of this form's own autosave (EditPostView sets
+// `post.value = await saveDraft(...)`, ~every 800ms while typing). Without
+// this, that echo would overwrite the live buffer with the server's
+// response on every tick, silently eating any leading/trailing whitespace
+// the user just typed (the server trims on save) well before they're done.
+let lastAppliedSlug: string | null = null
+
 function applyPost(post: Post | null | undefined) {
   convertNotice.value = ''
   clientError.value = ''
   draftNotice.value = ''
   baselineQuote.value = null
   if (!post) {
+    lastAppliedSlug = null
     baseline.value = null
     kind.value = 'note'
     noteContent.value = ''
@@ -311,6 +321,10 @@ function applyPost(post: Post | null | undefined) {
   baseline.value = { kind: serverKind, content: post.content }
 
   const slug = postSlug(post.id)
+  const isOwnAutosaveEcho = lastAppliedSlug === slug
+  lastAppliedSlug = slug
+  if (isOwnAutosaveEcho) return
+
   const draft = loadComposeDraft(slug)
   if (draft && (draft.kind !== serverKind || draft.content !== post.content)) {
     applyContent(draft.kind, draft.content)
@@ -743,7 +757,7 @@ function submit() {
             />
           </label>
           <label class="quote-field" for="quote-link-title">
-            <span class="quote-field-label">Link title <InfoTip label="The published link text — leave blank to use the source's domain name." /></span>
+            <span class="quote-field-label">Link title <InfoTip label="The published link text. Leave blank to use the source's domain name." /></span>
             <input
               id="quote-link-title"
               v-model="quoteLinkTitle"
@@ -755,7 +769,7 @@ function submit() {
             />
           </label>
           <label class="quote-field" for="quote-excerpt">
-            <span class="quote-field-label">Excerpt <InfoTip label="Optional — the quoted text from the source." /></span>
+            <span class="quote-field-label">Excerpt <InfoTip label="Optional: the quoted text from the source." /></span>
             <MarkdownEditor
               id="quote-excerpt"
               v-model="quoteExcerpt"
@@ -767,7 +781,7 @@ function submit() {
             />
           </label>
           <label class="quote-field" for="quote-commentary">
-            <span class="quote-field-label">Commentary <InfoTip label="Optional — your own take on the quote." /></span>
+            <span class="quote-field-label">Commentary <InfoTip label="Optional: your own take on the quote." /></span>
             <MarkdownEditor
               id="quote-commentary"
               v-model="quoteCommentary"
@@ -779,7 +793,7 @@ function submit() {
             />
           </label>
           <label class="quote-field" for="quote-via">
-            <span class="quote-field-label">Via <InfoTip label="Optional — who pointed you to this, for a hat-tip." /></span>
+            <span class="quote-field-label">Via <InfoTip label="Optional: who pointed you to this, for a hat-tip." /></span>
             <input
               id="quote-via"
               v-model="quoteVia"
