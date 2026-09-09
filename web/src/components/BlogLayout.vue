@@ -151,7 +151,7 @@ function navActive(item: NavItem) {
       <header class="site-header">
       <div class="header-inner">
         <div class="header-brand-group">
-          <RouterLink to="/" class="brand header-brand" aria-label="Home" :title="`Home — ${siteTitle}`">
+          <RouterLink to="/" class="brand header-brand" aria-label="Home" :title="`Home: ${siteTitle}`">
             <img v-if="site?.branding?.logo_url" :src="site.branding.logo_url" class="brand-logo" alt="" />
             <span>{{ siteTitle }}</span>
           </RouterLink>
@@ -206,7 +206,7 @@ function navActive(item: NavItem) {
               type="button"
               class="nav-icon nav-icon-magic"
               :aria-label="magicIconShowsBack ? 'Back to Author' : 'Compose'"
-              :title="magicIconShowsBack ? 'Back to Author list' : 'Compose — write and publish'"
+              :title="magicIconShowsBack ? 'Back to Author list' : 'Compose: write and publish'"
               @click="onMagicIconClick"
             >
               <Transition name="magic-icon" mode="out-in">
@@ -236,8 +236,8 @@ function navActive(item: NavItem) {
               to="/admin/moderation"
               class="nav-icon nav-icon-badge"
               :class="{ active: route.path.startsWith('/admin/moderation') }"
-              :aria-label="pendingCount > 0 ? `Moderation — ${pendingCount} pending` : 'Moderation'"
-              :title="pendingCount > 0 ? `Moderation — ${pendingCount} pending` : 'Moderation'"
+              :aria-label="pendingCount > 0 ? `Moderation: ${pendingCount} pending` : 'Moderation'"
+              :title="pendingCount > 0 ? `Moderation: ${pendingCount} pending` : 'Moderation'"
             >
               <Inbox :size="20" :stroke-width="1.75" aria-hidden="true" />
               <span v-if="pendingCount > 0" class="badge-count">{{ pendingCount }}</span>
@@ -247,7 +247,7 @@ function navActive(item: NavItem) {
               class="nav-icon"
               :class="{ active: route.path === '/admin' }"
               aria-label="Admin settings"
-              title="Admin — instance settings"
+              title="Admin: instance settings"
             >
               <Settings :size="20" :stroke-width="1.75" aria-hidden="true" />
             </RouterLink>
@@ -274,7 +274,7 @@ function navActive(item: NavItem) {
               href="/feed.xml"
               class="nav-icon"
               aria-label="RSS feed"
-              title="RSS feed — subscribe to posts"
+              title="RSS feed: subscribe to posts"
             >
               <Rss :size="20" :stroke-width="1.75" aria-hidden="true" />
             </a>

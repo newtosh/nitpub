@@ -743,7 +743,7 @@ function submit() {
             />
           </label>
           <label class="quote-field" for="quote-link-title">
-            <span class="quote-field-label">Link title <InfoTip label="The published link text — leave blank to use the source's domain name." /></span>
+            <span class="quote-field-label">Link title <InfoTip label="The published link text. Leave blank to use the source's domain name." /></span>
             <input
               id="quote-link-title"
               v-model="quoteLinkTitle"
@@ -755,7 +755,7 @@ function submit() {
             />
           </label>
           <label class="quote-field" for="quote-excerpt">
-            <span class="quote-field-label">Excerpt <InfoTip label="Optional — the quoted text from the source." /></span>
+            <span class="quote-field-label">Excerpt <InfoTip label="Optional: the quoted text from the source." /></span>
             <MarkdownEditor
               id="quote-excerpt"
               v-model="quoteExcerpt"
@@ -767,7 +767,7 @@ function submit() {
             />
           </label>
           <label class="quote-field" for="quote-commentary">
-            <span class="quote-field-label">Commentary <InfoTip label="Optional — your own take on the quote." /></span>
+            <span class="quote-field-label">Commentary <InfoTip label="Optional: your own take on the quote." /></span>
             <MarkdownEditor
               id="quote-commentary"
               v-model="quoteCommentary"
@@ -779,7 +779,7 @@ function submit() {
             />
           </label>
           <label class="quote-field" for="quote-via">
-            <span class="quote-field-label">Via <InfoTip label="Optional — who pointed you to this, for a hat-tip." /></span>
+            <span class="quote-field-label">Via <InfoTip label="Optional: who pointed you to this, for a hat-tip." /></span>
             <input
               id="quote-via"
               v-model="quoteVia"
