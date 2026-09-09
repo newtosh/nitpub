@@ -16,6 +16,9 @@ func fakeGoatCounter(t *testing.T, wantToken string, requestCount *int32) *httpt
 		if got := r.Header.Get("Authorization"); got != "Bearer "+wantToken {
 			t.Errorf("Authorization header = %q, want %q", got, "Bearer "+wantToken)
 		}
+		if r.URL.Path == "/api/v0/stats/hits" && r.URL.Query().Get("limit") != "25" {
+			t.Errorf("top-pages limit = %q, want 25", r.URL.Query().Get("limit"))
+		}
 		w.Header().Set("Content-Type", "application/json")
 		var body string
 		switch r.URL.Path {
