@@ -76,7 +76,7 @@ function resetPreview() {
         class="theme-card"
         :class="{ selected: previewId === theme.id }"
         :aria-selected="previewId === theme.id"
-        :title="`${theme.name} — ${theme.description}`"
+        :title="`${theme.name}: ${theme.description}`"
         :aria-label="`Preview ${theme.name} theme`"
         @click="selectTheme(theme.id)"
       >

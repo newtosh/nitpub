@@ -305,7 +305,7 @@ onMounted(async () => {
       <section v-show="tab === 'settings'" class="stack">
         <h3 class="section-title">
           Branding
-          <InfoTip label="Brand icon shown beside the site title in the header, and the browser-tab favicon. Both optional — leave unset to use the default." />
+          <InfoTip label="Brand icon shown beside the site title in the header, and the browser-tab favicon. Both optional: leave unset to use the default." />
         </h3>
         <div class="branding-row">
           <label class="field branding-field">

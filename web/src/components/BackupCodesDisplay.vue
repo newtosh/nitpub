@@ -27,7 +27,7 @@ function downloadCodes() {
 
 <template>
   <div class="backup-codes-body">
-    <p>Save these now — they won't be shown again. Each works once.</p>
+    <p>Save these now. They won't be shown again. Each works once.</p>
     <pre class="backup-codes">{{ codes.join('\n') }}</pre>
   </div>
   <div class="form-actions">

@@ -42,13 +42,13 @@ const parentLabel = computed(
     >
       <MastodonIcon :size="13" />
     </span>
-    <span v-if="!reply.verified" class="unverified-badge" title="Migrated from before moderation existed — actor identity was not signature-verified">
+    <span v-if="!reply.verified" class="unverified-badge" title="Migrated from before moderation existed. Actor identity was not signature-verified">
       unverified, migrated
     </span>
     <span
       v-if="reply.nested"
       class="nested-tag"
-      :title="`Not a direct reply to the post — addressed to ${parentLabel}`"
+      :title="`Not a direct reply to the post: addressed to ${parentLabel}`"
     >
       <CornerDownRight :size="12" :stroke-width="2" aria-hidden="true" />
       Reply to {{ parentLabel }}
