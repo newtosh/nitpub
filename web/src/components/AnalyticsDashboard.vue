@@ -15,6 +15,7 @@ type Window = '24h' | '7d' | '30d'
 
 const SPARK_W = 180
 const SPARK_H = 44
+const TOP_PAGE_LIMIT = 10
 
 const WINDOWS: { id: Window; label: string }[] = [
   { id: '24h', label: 'Last 24 hours' },
@@ -23,6 +24,7 @@ const WINDOWS: { id: Window; label: string }[] = [
 ]
 
 const window = ref<Window>('7d')
+const showSelf = ref(false)
 const loading = ref(true)
 const error = ref('')
 const stats = ref<Stats | null>(null)
@@ -58,15 +60,22 @@ function barWidth(count: number, rows: Breakdown[]): number {
   return max === 0 ? 0 : Math.round((count / max) * 100)
 }
 
-// Internal/self-check paths that show up as noise in a low-traffic blog's
-// analytics: the admin's own dashboard visits, auth flow, and unmatched
-// (404-ish) requests GoatCounter still counted as a pageview. Labeled, not
-// filtered — the count stays honest, just legible.
-const INTERNAL_PATH_PREFIXES = ['/admin', '/login', '/logout', '/verify-']
+// /author routes are auth-protected, including every edit route, so they
+// always describe the site owner's traffic rather than a reader visit.
+const SELF_PATH_PREFIXES = ['/admin', '/author', '/login', '/logout', '/verify-']
 
-function pageBadge(row: Breakdown): string | null {
-  return INTERNAL_PATH_PREFIXES.some((p) => row.name.startsWith(p)) ? 'self' : null
+function isSelfPage(row: Breakdown): boolean {
+  return SELF_PATH_PREFIXES.some((p) => row.name.startsWith(p))
 }
+
+const selfPageviews = computed(() =>
+  (stats.value?.top_pages ?? []).filter(isSelfPage).reduce((total, row) => total + row.count, 0),
+)
+
+const visibleTopPages = computed(() => {
+  const pages = stats.value?.top_pages ?? []
+  return (showSelf.value ? pages : pages.filter((row) => !isSelfPage(row))).slice(0, TOP_PAGE_LIMIT)
+})
 
 // ISO 3166-1 alpha-2 -> flag emoji via regional indicator symbols (each
 // letter A-Z maps 1:1 onto U+1F1E6-U+1F1FF). No lookup table, no dep.
@@ -150,19 +159,25 @@ onMounted(load)
       </div>
 
       <div class="analytics-breakdown">
-        <h3>Top pages</h3>
-        <p v-if="stats.top_pages.length === 0" class="status">No data yet.</p>
+        <div class="analytics-breakdown-header">
+          <h3>Top pages</h3>
+          <label class="analytics-self-filter">
+            <input v-model="showSelf" type="checkbox" />
+            Show {{ selfPageviews }} self pageviews
+          </label>
+        </div>
+        <p v-if="visibleTopPages.length === 0" class="status">No pageviews matching this filter.</p>
         <table v-else class="analytics-table">
           <tbody>
             <!-- name is visitor-controlled (a requested path) — plain text
                  interpolation only, never v-html or a rendered link. -->
-            <tr v-for="row in stats.top_pages" :key="row.name">
+            <tr v-for="row in visibleTopPages" :key="row.name">
               <td>
                 <div class="analytics-bar-row">
-                  <span class="analytics-bar" :style="{ width: barWidth(row.count, stats.top_pages) + '%' }" />
+                  <span class="analytics-bar" :style="{ width: barWidth(row.count, visibleTopPages) + '%' }" />
                   <span class="analytics-bar-label">
                     {{ row.name }}
-                    <span v-if="pageBadge(row)" class="analytics-badge">{{ pageBadge(row) }}</span>
+                    <span v-if="isSelfPage(row)" class="analytics-badge">self</span>
                   </span>
                 </div>
               </td>
@@ -322,6 +337,23 @@ onMounted(load)
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.03em;
+}
+.analytics-breakdown-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.analytics-self-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1, 0.25rem);
+  color: var(--muted);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+.analytics-self-filter input {
+  accent-color: var(--accent);
 }
 .analytics-table {
   width: 100%;

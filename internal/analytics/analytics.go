@@ -18,7 +18,8 @@ import (
 const (
 	maxResponseBytes = 1 << 20 // 1 MiB — generous for a stats JSON response
 	cacheTTL         = 60 * time.Second
-	fetchLimit       = 10               // top N pages / referrers
+	fetchLimit       = 10               // top N referrers / locations
+	fetchPageLimit   = 25               // leaves room for self-traffic filtering in the dashboard
 	fetchTimeout     = 15 * time.Second // overall budget for the 4 sequential upstream calls in Stats
 )
 
@@ -236,7 +237,7 @@ func (s *Service) fetchPages(ctx context.Context, params map[string]string) ([]B
 			Count int    `json:"count"`
 		} `json:"hits"`
 	}
-	all := map[string]string{"limit": fmt.Sprintf("%d", fetchLimit)}
+	all := map[string]string{"limit": fmt.Sprintf("%d", fetchPageLimit)}
 	for k, v := range params {
 		all[k] = v
 	}
