@@ -50,6 +50,11 @@ const (
 	// the same instance domain a real commenter also uses.
 	bucketReferenceApps = "reference_apps"
 	bucketReferenceAuth = "reference_auth"
+
+	// bucketBlueskyAuth backs the admin-optional Bluesky crosspost
+	// connect flow (single connected account, no OAuth app registration
+	// needed since Bluesky auth is app-password based).
+	bucketBlueskyAuth = "bluesky_auth"
 )
 
 var requiredBuckets = []string{
@@ -74,6 +79,7 @@ var requiredBuckets = []string{
 	bucketCommentApps,
 	bucketReferenceApps,
 	bucketReferenceAuth,
+	bucketBlueskyAuth,
 }
 
 // Store wraps a bbolt database with nitpub's bucket layout.
@@ -163,4 +169,6 @@ const (
 
 	BucketReferenceApps = bucketReferenceApps
 	BucketReferenceAuth = bucketReferenceAuth
+
+	BucketBlueskyAuth = bucketBlueskyAuth
 )

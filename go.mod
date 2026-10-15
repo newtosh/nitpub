@@ -19,6 +19,7 @@ require (
 	github.com/openshift/osin v1.0.2-0.20220317075346-0f4d38c6e53f
 	github.com/pelletier/go-toml/v2 v2.4.3
 	github.com/pquerna/otp v1.5.0
+	github.com/rivo/uniseg v0.4.7
 	github.com/spf13/cobra v1.10.2
 	github.com/yuin/goldmark v1.8.4
 	go.etcd.io/bbolt v1.5.0
@@ -83,7 +84,6 @@ require (
 	github.com/muesli/termenv v0.16.0 // indirect
 	github.com/pborman/uuid v1.2.1 // indirect
 	github.com/philhofer/fwd v1.2.0 // indirect
-	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/rs/xid v1.6.0 // indirect
 	github.com/rs/zerolog v1.35.1 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect

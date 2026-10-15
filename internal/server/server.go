@@ -16,6 +16,7 @@ import (
 	"github.com/newtosh/nitpub/internal/api"
 	"github.com/newtosh/nitpub/internal/apstore"
 	"github.com/newtosh/nitpub/internal/auth"
+	"github.com/newtosh/nitpub/internal/bluesky"
 	"github.com/newtosh/nitpub/internal/commentauth"
 	"github.com/newtosh/nitpub/internal/config"
 	"github.com/newtosh/nitpub/internal/federation"
@@ -202,6 +203,11 @@ func New(ctx context.Context, cfg config.Config, st *store.Store, static fs.FS) 
 	referenceApps := mastodon.NewAppRegistrar(referenceClient, mastodon.NewAppStoreIn(st, store.BucketReferenceApps))
 	apiHandler.SetReference(referenceClient, referenceApps, mastodon.NewReferenceAuthStore(st), cfg.HTTPDev)
 
+	// Bluesky's default hosted PDS (bluesky.DefaultBaseURL) needs no
+	// deploy-time config, unlike the reference-Mastodon flow above — so,
+	// unlike SetReference's dev-only exercise path, this is always wired.
+	apiHandler.SetBluesky(bluesky.NewClient(""), bluesky.NewAuthStore(st))
+
 	inboxHandler := inbox.NewHandler(verify, ap, ob, deliverOne, string(actorIRI), cfg.BaseURL, modSvc, func() bool {
 		m, err := siteSvc.Load()
 		if err != nil {
@@ -256,6 +262,10 @@ func New(ctx context.Context, cfg config.Config, st *store.Store, static fs.FS) 
 	mux.HandleFunc("GET /api/admin/federation/reference/callback", apiHandler.AdminReferenceCallback)
 	mux.HandleFunc("POST /api/admin/federation/reference/disconnect", apiHandler.AdminDisconnectReference)
 	mux.HandleFunc("POST /api/admin/federation/reference/resolve", apiHandler.AdminResolveReferencePermalinks)
+	mux.HandleFunc("GET /api/admin/bluesky/status", apiHandler.AdminGetBlueskyStatus)
+	mux.HandleFunc("POST /api/admin/bluesky/connect", apiHandler.AdminConnectBluesky)
+	mux.HandleFunc("DELETE /api/admin/bluesky/connect", apiHandler.AdminDisconnectBluesky)
+	mux.HandleFunc("POST /api/posts/{slug}/bluesky/retry", apiHandler.AdminRetryBlueskyPost)
 	mux.HandleFunc("GET /api/admin/replies", apiHandler.AdminListPendingReplies)
 	mux.HandleFunc("GET /api/admin/replies/reviewed", apiHandler.AdminListReviewedReplies)
 	// {id} (single path segment) is sufficient here — the composite reply key

@@ -59,7 +59,7 @@ function draftChange(payload: { kind: 'note' | 'article'; title: string; content
   return pendingSave
 }
 
-async function publish(payload: { kind: string; content: string; federate: boolean }) {
+async function publish(payload: { kind: string; content: string; federate: boolean; bluesky: boolean }) {
   error.value = ''
   // Wait for every autosave already queued before deciding which path to
   // take — and before publishing a draft, so publish never races an
@@ -85,6 +85,7 @@ async function publish(payload: { kind: string; content: string; federate: boole
         title,
         content: body,
         federate: payload.federate,
+        bluesky: payload.bluesky,
       })
       router.push('/author')
       return

@@ -1,3 +1,14 @@
+// Mirrors internal/outbox.BlueskyState's JSON shape exactly (confirmed by
+// reading the Go struct, not guessed).
+export type BlueskyState = {
+  status: 'pending' | 'posted' | 'error'
+  posted_at?: string
+  error?: string
+  uri?: string
+  truncated?: boolean
+  pending_since?: string
+}
+
 export type Post = {
   id: string
   kind: string
@@ -12,6 +23,7 @@ export type Post = {
     error?: string
     remote_url?: string
   }
+  bluesky?: BlueskyState
   reply_count?: number
   // Raw structured input for a kind:"quote" post (internal/outbox.QuoteFields
   // mirror) — undefined for every other kind.
@@ -348,7 +360,7 @@ export async function saveDraft(payload: {
 
 export async function publishDraft(
   slug: string,
-  payload?: { kind?: string; title?: string; content?: string; federate?: boolean },
+  payload?: { kind?: string; title?: string; content?: string; federate?: boolean; bluesky?: boolean },
 ): Promise<Post> {
   const res = await fetch(`/api/posts/${slug}/publish`, {
     method: 'POST',

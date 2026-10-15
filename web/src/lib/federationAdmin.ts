@@ -85,3 +85,39 @@ export async function disconnectReference(): Promise<void> {
   })
   if (!res.ok) throw new Error('Failed to disconnect')
 }
+
+export type BlueskyStatus = {
+  connected: boolean
+  handle: string
+  needs_reconnect: boolean
+}
+
+export async function fetchBlueskyStatus(): Promise<BlueskyStatus> {
+  const res = await fetch('/api/admin/bluesky/status', { credentials: 'include' })
+  return unwrap(res, 'Failed to load Bluesky status')
+}
+
+export async function connectBluesky(
+  handle: string,
+  appPassword: string,
+): Promise<{ connected: true; handle: string }> {
+  const res = await fetch('/api/admin/bluesky/connect', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ handle, app_password: appPassword }),
+  })
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(text || 'Failed to connect — check the handle and app password')
+  }
+  return res.json()
+}
+
+export async function disconnectBluesky(): Promise<void> {
+  const res = await fetch('/api/admin/bluesky/connect', {
+    method: 'DELETE',
+    credentials: 'include',
+  })
+  if (!res.ok) throw new Error('Failed to disconnect')
+}
