@@ -1,0 +1,38 @@
+{
+  "variables": {
+    "do_token": "{{env `DIGITALOCEAN_TOKEN`}}",
+    "image_name": "nitpub-{{timestamp}}"
+  },
+  "sensitive-variables": ["do_token"],
+  "builders": [
+    {
+      "type": "digitalocean",
+      "api_token": "{{user `do_token`}}",
+      "image": "debian-12-x64",
+      "region": "nyc3",
+      "size": "s-1vcpu-1gb",
+      "ssh_username": "root",
+      "snapshot_name": "{{user `image_name`}}"
+    }
+  ],
+  "provisioners": [
+    {
+      "type": "shell",
+      "inline": ["cloud-init status --wait"]
+    },
+    {
+      "type": "shell",
+      "environment_vars": [
+        "DEBIAN_FRONTEND=noninteractive",
+        "LC_ALL=C",
+        "LANG=en_US.UTF-8",
+        "LC_CTYPE=en_US.UTF-8"
+      ],
+      "scripts": [
+        "scripts/01-nitpub-install.sh",
+        "scripts/90-cleanup.sh",
+        "scripts/99-img-check.sh"
+      ]
+    }
+  ]
+}
